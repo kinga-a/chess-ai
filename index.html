@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#0b0f0e" />
+<title>棋境 · EdgeOne AI 棋馆 | 五子棋 · 中国象棋 · MCP</title>
+<meta name="description" content="部署在 EdgeOne Makers 的五子棋与中国象棋 AI 对弈馆：本地 minimax 引擎、边缘 AI、大模型接管，并内置 MCP Server 供任意 AI 客户端接入实时对弈。" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0f0e'/%3E%3Ccircle cx='32' cy='32' r='19' fill='%23d9a441'/%3E%3Ctext x='32' y='41' font-size='22' text-anchor='middle' fill='%230b0f0e' font-family='serif'%3E棋%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<!-- ============ ACCESS GATE ============ -->
+<div class="gate" id="accessGate" hidden>
+  <div class="gate-backdrop"></div>
+  <div class="gate-card" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+    <div class="gate-seal">棋</div>
+    <div class="eyebrow">PRIVATE CLUB · ACCESS KEY</div>
+    <h2 id="gateTitle">入馆验证</h2>
+    <p class="gate-lead">本馆已启用访问密钥，请输入管理员配置的 <code>ADMIN_PASS</code> 后进入。</p>
+    <form id="gateForm" autocomplete="off">
+      <label class="gate-field">
+        <span>访问密钥</span>
+        <input id="gateKey" type="password" name="key" autocomplete="current-password" placeholder="输入访问密钥" spellcheck="false" required />
+      </label>
+      <label class="gate-remember">
+        <input type="checkbox" id="gateRemember" />
+        <span>记住本设备</span>
+      </label>
+      <button class="btn primary gate-submit" id="gateSubmit" type="submit"><span>进入棋馆</span><i>→</i></button>
+      <p class="gate-error" id="gateError" role="alert" aria-live="polite"></p>
+    </form>
+    <p class="gate-foot">密钥由管理员在 EdgeOne 环境变量中设置</p>
+  </div>
+</div>
+
+<div class="ambient">
+  <canvas id="bgCanvas" aria-hidden="true"></canvas>
+  <div class="ambient-glow g1"></div>
+  <div class="ambient-glow g2"></div>
+  <div class="ambient-grid"></div>
+</div>
+
+<header class="topbar">
+  <button class="brand" data-nav="lobby" aria-label="返回棋馆">
+    <span class="brand-mark">棋</span>
+    <span class="brand-text"><b>棋境</b><small>EDGEONE AI 棋馆</small></span>
+  </button>
+  <nav class="topnav">
+    <button class="nav-btn" data-nav="lobby">棋馆</button>
+    <button class="nav-btn" id="navMcp">MCP 接口</button>
+    <button class="nav-btn icon" id="soundBtn" aria-label="音效开关"><span class="snd-on">♪</span><span class="snd-off">✕</span></button>
+  </nav>
+</header>
+
+<main class="main">
+  <!-- ============ LOBBY ============ -->
+  <section id="view-lobby" class="view is-active">
+    <div class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow"><span class="pulse-dot"></span> EDGEONE MAKERS · AI NATIVE</div>
+        <h1>落子于边缘，<br /><em>对弈于千里。</em></h1>
+        <p class="lead">
+          五子棋与中国象棋，内置 <b>minimax / alpha-beta</b> 引擎、EdgeOne 边缘算力与大模型接管。
+          同时暴露 <b>MCP Server</b>，任何 AI 客户端都能接入，实时与你对弈。
+        </p>
+        <div class="hero-actions">
+          <button class="btn primary" data-open="gomoku"><span>开始五子棋</span><i>→</i></button>
+          <button class="btn ghost" data-open="chess"><span>开始中国象棋</span><i>→</i></button>
+          <button class="btn ghost" id="heroRoom"><span>联机对局</span><i>⇄</i></button>
+          <button class="btn link" id="heroMcp">MCP 接入说明</button>
+        </div>
+        <div class="hero-stats">
+          <div><b id="statGames">0</b><span>累计对局</span></div>
+          <div><b id="statWins">0</b><span>胜场</span></div>
+          <div><b id="statRate">—</b><span>胜率</span></div>
+          <div><b id="statEngine">LOCAL</b><span>当前引擎</span></div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-ring ring-a"></div>
+        <div class="hero-ring ring-b"></div>
+        <canvas id="heroCanvas" width="640" height="640" aria-hidden="true"></canvas>
+        <div class="hero-badge"><span>MCP</span> READY</div>
+        <div class="hero-caption">棋局即接口 · 落子即调用</div>
+      </div>
+    </div>
+
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">选择棋局</div>
+        <h2>两种棋，一套 AI 内核</h2>
+      </div>
+      <p>规则完整 · 实时响应 · 可切换引擎</p>
+    </div>
+
+    <div class="game-cards">
+      <article class="game-card" data-open="gomoku" tabindex="0" role="button">
+        <div class="card-art gomoku-art"><canvas class="preview" data-preview="gomoku" width="520" height="360"></canvas><span class="art-tag">15 × 15</span></div>
+        <div class="card-body">
+          <div class="tag">连珠 · GOMOKU</div>
+          <h3>五子棋</h3>
+          <p>棋型评估 + 必胜必防检测，活三、冲四、双杀一眼看穿。执黑或执白，三档难度。</p>
+          <div class="card-meta"><span>AI 三档</span><span>悔棋</span><span>棋谱</span><span>MCP</span></div>
+          <span class="card-cta">进入棋局 <i>→</i></span>
+        </div>
+      </article>
+
+      <article class="game-card" data-open="chess" tabindex="0" role="button">
+        <div class="card-art chess-art"><canvas class="preview" data-preview="chess" width="520" height="360"></canvas><span class="art-tag">9 × 10</span></div>
+        <div class="card-body">
+          <div class="tag">象棋 · XIANGQI</div>
+          <h3>中国象棋</h3>
+          <p>完整走子规则：蹩马腿、塞象眼、炮翻山、过河兵、将帅照面。alpha-beta 深度搜索。</p>
+          <div class="card-meta"><span>将军提示</span><span>三档难度</span><span>悔棋</span><span>MCP</span></div>
+          <span class="card-cta">进入棋局 <i>→</i></span>
+        </div>
+      </article>
+
+      <article class="game-card mcp-card" id="cardMcp" tabindex="0" role="button">
+        <div class="mcp-glyph">{&nbsp;}</div>
+        <div class="card-body">
+          <div class="tag">MODEL CONTEXT PROTOCOL</div>
+          <h3>把棋局交给 AI</h3>
+          <p>标准化 JSON-RPC 工具：新建棋局、落子、AI 思考、合法着法查询。Cursor、Claude、任意 Agent 即插即用。</p>
+          <code class="endpoint-inline" id="mcpEndpointInline">/api/mcp</code>
+          <span class="card-cta">查看接入配置 <i>→</i></span>
+        </div>
+      </article>
+    </div>
+
+    <div class="feature-strip">
+      <div class="feature"><span class="f-ico">◈</span><b>边缘实时</b><p>AI 着法在 EdgeOne 边缘节点计算，就近响应。</p></div>
+      <div class="feature"><span class="f-ico">⌬</span><b>三引擎可切换</b><p>本地 Worker / 边缘函数 / 大模型，失败自动降级。</p></div>
+      <div class="feature"><span class="f-ico">◎</span><b>MCP 原生</b><p>无状态 JSON-RPC，工具即棋局，支持任意客户端。</p></div>
+      <div class="feature"><span class="f-ico">✦</span><b>完整闭环</b><p>新局、悔棋、认输、战绩、棋谱与特效反馈。</p></div>
+    </div>
+
+    <footer class="lobby-foot">
+      <span>棋境 · 部署于 EdgeOne Makers</span>
+      <span class="dot-sep"></span>
+      <span>五子棋 &amp; 中国象棋</span>
+      <span class="dot-sep"></span>
+      <span>MCP Streamable HTTP</span>
+      <span class="dot-sep"></span>
+      <span>v1.2.0</span>
+    </footer>
+  </section>
+
+  <!-- ============ GAME ============ -->
+  <section id="view-game" class="view">
+    <div class="game-layout">
+      <header class="game-head">
+        <button class="back-btn" id="backBtn" aria-label="返回棋馆">← <span>棋馆</span></button>
+        <div class="game-title">
+          <b id="gameName">五子棋</b>
+          <span id="gameSub">GOMOKU · 15×15</span>
+        </div>
+        <div class="head-right">
+          <button class="btn ghost sm" id="roomBtn">联机对局</button>
+          <span class="pill" id="enginePill"><i></i>本地引擎</span>
+          <button class="icon-btn" id="helpBtn" aria-label="规则说明">?</button>
+        </div>
+      </header>
+
+      <div class="board-stage">
+        <div class="board-frame" id="boardFrame">
+          <canvas id="boardCanvas"></canvas>
+          <canvas id="fxCanvas"></canvas>
+          <div class="board-shine"></div>
+          <div class="thinking" id="thinking"><i></i><i></i><i></i><span>AI 思考中</span></div>
+          <div class="board-toast" id="boardToast"></div>
+        </div>
+        <div class="turnbar">
+          <div class="turn-side" id="turnSide"><span class="dot"></span><b>轮到你</b></div>
+          <div class="turn-info" id="turnInfo">执黑 · 第 1 手</div>
+          <span class="room-badge" id="roomBadge" hidden></span>
+        </div>
+      </div>
+
+      <aside class="panel">
+        <section class="panel-block">
+          <h4>对局设置</h4>
+          <label class="field">
+            <span>AI 难度</span>
+            <select id="levelSelect">
+              <option value="easy">入门 · 轻量搜索</option>
+              <option value="normal" selected>进阶 · 常规深度</option>
+              <option value="hard">大师 · 深度搜索</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>AI 引擎</span>
+            <select id="engineSelect">
+              <option value="local" selected>本地引擎 · 零延迟</option>
+              <option value="edge">EdgeOne 边缘函数 · 就近计算</option>
+              <option value="llm">大模型接管 · 需配置 Key</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>执子</span>
+            <select id="sideSelect">
+              <option value="first" selected>先手（黑 / 红）</option>
+              <option value="second">后手（白 / 黑）</option>
+            </select>
+          </label>
+          <div class="panel-actions">
+            <button class="btn primary sm" id="newGameBtn">新开一局</button>
+            <button class="btn ghost sm" id="undoBtn">悔棋</button>
+            <button class="btn ghost sm" id="resignBtn">认输</button>
+          </div>
+        </section>
+
+        <section class="panel-block">
+          <h4>局面</h4>
+          <div class="status-grid">
+            <div><span>手数</span><b id="moveCount">0</b></div>
+            <div><span>AI 用时</span><b id="aiTime">—</b></div>
+            <div><span>评估</span><b id="evalText">—</b></div>
+          </div>
+          <div class="captured" id="capturedRow"></div>
+        </section>
+
+        <section class="panel-block record-block">
+          <h4>棋谱 <button class="mini" id="copyRecord">复制</button></h4>
+          <ol class="record" id="recordList"><li class="empty">暂无着法</li></ol>
+        </section>
+
+        <section class="panel-block mcp-mini">
+          <h4>MCP 实时接入</h4>
+          <code id="mcpEndpoint">/api/mcp</code>
+          <div class="row">
+            <button class="btn ghost sm" id="copyMcp">复制端点</button>
+            <button class="btn ghost sm" id="openMcp">配置示例</button>
+          </div>
+          <p class="hint">外部 AI 可通过 <b>gomoku_*</b> / <b>chess_*</b> 工具读取并操控棋局。</p>
+        </section>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<!-- ============ ROOM MODAL ============ -->
+<div class="modal" id="roomModal" aria-hidden="true">
+  <div class="modal-backdrop" data-close="roomModal"></div>
+  <div class="modal-card wide" role="dialog" aria-modal="true" aria-labelledby="roomTitle">
+    <button class="modal-close" data-close="roomModal" aria-label="关闭">✕</button>
+    <div class="eyebrow">LIVE MATCH</div>
+    <h3 id="roomTitle">联机对战</h3>
+    <p class="modal-lead">
+      创建房间后把 6 位房间码发给对手；MCP 客户端可用 <code>room_play</code> / <code>room_ai_move</code> 在同一房间落子，网页会实时刷新。
+    </p>
+
+    <div class="room-grid">
+      <div class="room-panel">
+        <h4>创建房间</h4>
+        <label class="field">
+          <span>棋种</span>
+          <select id="roomGame">
+            <option value="gomoku">五子棋</option>
+            <option value="chess">中国象棋</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>你执子</span>
+          <select id="roomSide">
+            <option value="first">先手（黑 / 红）</option>
+            <option value="second">后手（白 / 黑）</option>
+          </select>
+        </label>
+        <button class="btn primary sm" id="roomCreate">创建</button>
+      </div>
+      <div class="room-panel">
+        <h4>加入房间</h4>
+        <label class="field">
+          <span>房间码</span>
+          <input id="roomCodeInput" maxlength="6" placeholder="如 7K3M9Q" spellcheck="false" />
+        </label>
+        <button class="btn ghost sm" id="roomJoin">加入</button>
+      </div>
+    </div>
+
+    <div class="room-active" id="roomActive" hidden>
+      <div class="room-code-label">房间码</div>
+      <div class="room-code" id="roomCodeValue">------</div>
+      <button class="btn ghost sm" id="roomCopy">复制房间码</button>
+      <div class="room-hint" id="roomHint">等待对手落子…</div>
+      <button class="btn ghost sm" id="roomLeave">退出房间</button>
+    </div>
+
+    <div class="room-book" id="roomBook" hidden>
+      <div class="room-book-head">
+        <h4>我的房间</h4>
+        <button class="btn ghost sm" id="roomBookClear">清除全部</button>
+      </div>
+      <ul id="roomBookList"></ul>
+    </div>
+
+    <p class="room-error" id="roomError" role="alert"></p>
+  </div>
+</div>
+
+<!-- ============ MCP MODAL ============ -->
+<div class="modal" id="mcpModal" aria-hidden="true">
+  <div class="modal-backdrop" data-close="mcpModal"></div>
+  <div class="modal-card wide" role="dialog" aria-modal="true" aria-labelledby="mcpTitle">
+    <button class="modal-close" data-close="mcpModal" aria-label="关闭">✕</button>
+    <div class="eyebrow">MODEL CONTEXT PROTOCOL</div>
+    <h3 id="mcpTitle">把你的 AI 接进棋馆</h3>
+    <p class="modal-lead">本服务实现了 MCP Streamable HTTP（JSON-RPC 2.0，无状态）。端点地址：</p>
+    <div class="copy-row"><code id="mcpEndpointFull">/api/mcp</code><button class="btn primary sm" id="copyFullMcp">复制</button></div>
+
+    <div class="modal-grid">
+      <div>
+        <h4>在 MCP 客户端中配置</h4>
+        <pre class="code-block" id="mcpConfig">{
+  "mcpServers": {
+    "edgeone-chess-ai": {
+      "url": "https://your-domain/api/mcp"
+    }
+  }
+}</pre>
+        <p class="hint">Cursor / Claude Desktop / Cline / Cherry Studio 等支持 URL 型 MCP Server 的客户端均可接入。</p>
+      </div>
+      <div>
+        <h4>可用工具</h4>
+        <ul class="tool-list">
+          <li><code>gomoku_new_game</code><span>创建五子棋棋局</span></li>
+          <li><code>gomoku_play</code><span>在指定坐标落子</span></li>
+          <li><code>gomoku_ai_move</code><span>AI 计算一步并落子</span></li>
+          <li><code>gomoku_analyze</code><span>分析局面与最佳点</span></li>
+          <li><code>chess_new_game</code><span>创建中国象棋棋局</span></li>
+          <li><code>chess_play</code><span>按 ICCS 坐标走子</span></li>
+          <li><code>chess_legal_moves</code><span>查询合法着法</span></li>
+          <li><code>chess_ai_move</code><span>AI 走一步</span></li>
+          <li><code>chess_status</code><span>将军 / 绝杀 / 子力</span></li>
+          <li><code>game_info</code><span>服务与规则说明</span></li>
+          <li><code>room_create</code><span>创建实时对战房间</span></li>
+          <li><code>room_state</code><span>读取房间局面</span></li>
+          <li><code>room_play</code><span>在房间落子</span></li>
+          <li><code>room_ai_move</code><span>AI 在房间应手</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <h4>调用示例</h4>
+    <pre class="code-block" id="mcpCurl">curl -X POST https://your-domain/api/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'</pre>
+
+    <div class="note-box">
+      <b>让 AI 执子：</b>先调用 <code>gomoku_new_game</code> 或 <code>chess_new_game</code> 获取初始局面，
+      再用 <code>gomoku_play</code> / <code>chess_play</code> 提交你的着法，随后调用 <code>*_ai_move</code> 让 AI 应手。
+      所有工具无状态，棋局通过 <code>board</code> / <code>fen</code> 参数携带，适合边缘与多客户端。
+    </div>
+<div class="note-box subtle">
+      <b>大模型接管（可选）：</b>在 EdgeOne 项目环境变量中配置 <code>AI_API_KEY</code>、<code>AI_BASE_URL</code>、<code>AI_MODEL</code>（OpenAI 兼容接口），
+      前端选择「大模型接管」或 MCP 工具传 <code>engine:"llm"</code> 即可。模型超时或返回非法着法时自动回退 minimax。
+    </div>
+    <div class="note-box subtle access-note">
+      <b>访问控制：</b>网页与浏览器 API 使用 <code>ADMIN_PASS</code>，MCP 使用 <code>ACCESS_KEY</code>，两者独立。
+      MCP 客户端请在请求头加 <code>Authorization: Bearer &lt;ACCESS_KEY&gt;</code>。
+      <button class="btn ghost sm" id="lockAccess" hidden>锁定本设备</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ RESULT MODAL ============ -->
+<div class="modal" id="resultModal" aria-hidden="true">
+  <div class="modal-backdrop" data-close="resultModal"></div>
+  <div class="modal-card result-card" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+    <div class="result-emblem" id="resultEmblem">胜</div>
+    <h3 id="resultTitle">你赢了</h3>
+    <p id="resultDesc">漂亮的连珠。</p>
+    <div class="result-stats">
+      <div><span>手数</span><b id="resultMoves">0</b></div>
+      <div><span>用时</span><b id="resultTime">0s</b></div>
+      <div><span>难度</span><b id="resultLevel">进阶</b></div>
+    </div>
+    <div class="result-actions">
+      <button class="btn primary" id="againBtn">再来一局</button>
+      <button class="btn ghost" id="lobbyBtn">返回棋馆</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ HELP MODAL ============ -->
+<div class="modal" id="helpModal" aria-hidden="true">
+  <div class="modal-backdrop" data-close="helpModal"></div>
+  <div class="modal-card" role="dialog" aria-modal="true">
+    <button class="modal-close" data-close="helpModal" aria-label="关闭">✕</button>
+    <div class="eyebrow">HOW TO PLAY</div>
+    <h3 id="helpTitle">玩法</h3>
+    <div id="helpBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+<div class="confetti-layer" id="confettiLayer" aria-hidden="true"></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "edgeone-chess-ai",
+  "version": "1.2.0",
+  "private": true,
+  "type": "module",
+  "description": "五子棋 + 中国象棋 AI 对弈馆，部署于 EdgeOne Makers，内置 MCP Server",
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "dev:secure": "ACCESS_KEY=dev-secret node scripts/dev-server.mjs",
+    "test": "node scripts/test-gomoku.mjs && node scripts/test-chess.mjs",
+    "test:auth": "node scripts/test-auth.mjs",
+    "deploy": "edgeone deploy"
+  },
+  "keywords": ["edgeone", "gomoku", "chinese-chess", "mcp", "ai"],
+  "license": "MIT"
+}
