@@ -4,7 +4,7 @@ export const PROTOCOL_VERSION = '2025-03-26';
 export const SERVER_INFO = {
   name: 'edgeone-chess-ai',
   title: '棋境 · EdgeOne AI 棋馆',
-  version: '1.4.2',
+  version: '1.5.0',
 };
 
 export const RULES_GOMOKU =

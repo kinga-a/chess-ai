@@ -619,7 +619,7 @@ function negamax(board, color, depth, alpha, beta, ctx, ply) {
   return best;
 }
 
-function rootSearch(board, color, depth, ctx) {
+function rootSearch(board, color, depth, ctx, avoid) {
   const moves = legalMoves(board, color);
   if (!moves.length) return { move: null, score: -MATE };
   orderMoves(board, moves);
@@ -628,6 +628,7 @@ function rootSearch(board, color, depth, ctx) {
   let alpha = -Infinity;
   const beta = Infinity;
   for (const mv of moves) {
+    if (avoid && mv.from === avoid.from && mv.to === avoid.to) continue;
     const captured = makeMove(board, mv);
     let score;
     try {
@@ -690,12 +691,13 @@ export function findBestMove(position, options = {}) {
     };
   }
 
+  const avoid = options.avoid && Number.isInteger(options.avoid.from) ? options.avoid : null;
   let best = rootMoves[0];
   let bestScore = 0;
   let reachedDepth = 0;
   try {
     for (let depth = 1; depth <= maxDepth; depth++) {
-      const res = rootSearch(board, color, depth, ctx);
+      const res = rootSearch(board, color, depth, ctx, avoid);
       if (res.move) {
         best = res.move;
         bestScore = res.score;

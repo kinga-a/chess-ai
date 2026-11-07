@@ -143,7 +143,7 @@ function negamax(board, player, depth, alpha, beta, budget) {
   return best;
 }
 
-export function findBestMove({ board, player, level = 'normal' }) {
+export function findBestMove({ board, player, level = 'normal', avoid = null }) {
   const moves = legalMoves(board);
   if (!moves.length) return -1;
 
@@ -153,7 +153,8 @@ export function findBestMove({ board, player, level = 'normal' }) {
 
   const depth = level === 'easy' ? 2 : level === 'hard' ? 6 : 4;
   const budget = { nodes: 0, limit: level === 'hard' ? 60000 : 20000 };
-  const order = moves.slice().sort((a, b) => Math.abs(3 - a) - Math.abs(3 - b));
+  let order = moves.slice().sort((a, b) => Math.abs(3 - a) - Math.abs(3 - b));
+  if (avoid !== null && order.length > 1) order = order.filter((m) => m !== avoid);
 
   let best = -Infinity;
   let bestMove = order[0];

@@ -89,8 +89,13 @@ async function main() {
     }
 
     if (room.status === 'over') {
-      log('对局结束，bridge 退出');
-      return;
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      const again = await call('room_state', { code: ROOM });
+      if (again.status === 'over') {
+        log('对局结束，bridge 退出');
+        return;
+      }
+      room = again;
     }
     if (moved) {
       log(`AI ${describe(room)} · ${Date.now() - started}ms · ${room.lastEngine || ENGINE}`);

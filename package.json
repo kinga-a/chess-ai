@@ -1,6 +1,6 @@
 {
   "name": "edgeone-chess-ai",
-  "version": "1.4.2",
+  "version": "1.5.0",
   "private": true,
   "type": "module",
   "description": "五子棋 + 中国象棋 AI 对弈馆，部署于 EdgeOne Makers，内置 MCP Server",

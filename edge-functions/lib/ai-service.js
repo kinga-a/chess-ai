@@ -86,7 +86,7 @@ export async function chooseGomoku({ board, player, level = 'normal', engine = '
   return fallback(reply.error || 'llm returned an illegal move');
 }
 
-export async function chooseChess({ fen, level = 'normal', engine = 'local', env = {} }) {
+export async function chooseChess({ fen, level = 'normal', engine = 'local', env = {}, avoid = null }) {
   const started = Date.now();
   const parsed = parseFen(fen);
   const moves = legalMoves(parsed.board, parsed.side);
@@ -97,6 +97,7 @@ export async function chooseChess({ fen, level = 'normal', engine = 'local', env
       level,
       depth: CHESS_DEPTH[level] || 2,
       timeMs: EDGE_TIME_MS,
+      avoid,
     });
     return { ...res, engine: 'minimax', llmError: llmError || null };
   };

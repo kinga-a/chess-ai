@@ -4,8 +4,9 @@
  */
 import { readRoom, saveRoom, removeRoom, newCode } from './room-store.js';
 import { decodeBoard, encodeBoard, playMove, coordToLabel } from './gomoku-ai.js';
-import { START_FEN, applyMoveByLabel, labelOfIndex } from './chess-ai.js';
+import { START_FEN, applyMoveByLabel, labelOfIndex, parseSquare } from './chess-ai.js';
 import { chooseGomoku, chooseChess } from './ai-service.js';
+import { addLesson, findAvoidKey, moveKey } from './lessons.js';
 import * as ttt from './tictactoe-ai.js';
 import * as c4 from './connect4-ai.js';
 import * as oth from './othello-ai.js';
@@ -135,6 +136,7 @@ async function applyGomoku(env, room, move, player) {
     room.winner = 0;
     room.reason = 'full';
   }
+  await rememberResult(env, room);
   return saveRoom(env, room);
 }
 
@@ -157,6 +159,7 @@ async function applyChess(env, room, from, to) {
     room.winner = room.turn === 'w' ? 'b' : 'w';
     room.reason = res.checkmate ? 'checkmate' : 'stalemate';
   }
+  await rememberResult(env, room);
   return saveRoom(env, room);
 }
 
@@ -177,6 +180,7 @@ async function applyGridGame(env, room, move, player) {
     room.winner = 0;
     room.reason = 'draw';
   }
+  await rememberResult(env, room);
   return saveRoom(env, room);
 }
 
@@ -202,6 +206,31 @@ export async function playInRoom(env, code, payload = {}) {
   return applyChess(env, room, payload.from, payload.to);
 }
 
+function avoidFor(game, key) {
+  if (!key) return null;
+  if (game === 'chess') {
+    const [a, b] = key.split('-');
+    const from = parseSquare(a);
+    const to = parseSquare(b);
+    return from && to ? { from: from.idx, to: to.idx } : null;
+  }
+  const n = Number(key);
+  return Number.isInteger(n) ? n : null;
+}
+
+async function rememberResult(env, room) {
+  if (room.status !== 'over' || room.lessonSaved) return;
+  room.lessonSaved = true;
+  const aiSide = aiSideOf(room);
+  if (String(room.winner) !== String(aiSide)) {
+    await addLesson(env, room.game, {
+      winner: room.winner,
+      aiSide,
+      moves: room.moves.map((m) => moveKey(room.game, m)),
+    });
+  }
+}
+
 export function aiSideOf(room) {
   return room.game === 'chess'
     ? room.humanSide === 'w' ? 'b' : 'w'
@@ -221,7 +250,8 @@ export async function aiMoveInRoom(env, code, { level = 'normal', engine = 'loca
 
   if (GRID[room.game]) {
     const started = Date.now();
-    const move = GRID[room.game].ai(room.board, room.turn, level);
+    const avoid = avoidFor(room.game, await findAvoidKey(env, room, aiSideOf(room)));
+    const move = GRID[room.game].ai(room.board, room.turn, level, avoid);
     if (move < 0) throw new RoomError('no legal move', 409);
     room.lastEngine = 'minimax';
     room.lastTimeMs = Date.now() - started;
@@ -236,7 +266,8 @@ export async function aiMoveInRoom(env, code, { level = 'normal', engine = 'loca
     return applyGomoku(env, room, ai.move, room.turn);
   }
 
-  const ai = await chooseChess({ fen: room.fen, level, engine, env });
+  const avoid = avoidFor(room.game, await findAvoidKey(env, room, aiSideOf(room)));
+  const ai = await chooseChess({ fen: room.fen, level, engine, env, avoid });
   room.lastEngine = ai.engine;
   room.lastTimeMs = ai.timeMs;
   return applyChess(env, room, ai.fromLabel || labelOfIndex(ai.from), ai.toLabel || labelOfIndex(ai.to));
