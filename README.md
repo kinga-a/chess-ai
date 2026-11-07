@@ -1,6 +1,6 @@
 # 棋境 · EdgeOne AI 棋馆
 
-> 当前版本 **v1.2.8**
+> 当前版本 **v1.2.9**
 
 部署在 **EdgeOne Makers** 上的五子棋 + 中国象棋 AI 对弈馆。零依赖单页前端，内置本地 minimax 引擎、边缘函数 AI 接口，以及一个 **MCP Server**——任何支持 MCP 的 AI 客户端（Claude Desktop、Cursor、自研 Agent）都能直接接入，实时查局、走子、让 AI 落子。
 
@@ -260,7 +260,8 @@ BASE=https://<域名> ACCESS_KEY=<key> node scripts/mcp-bridge.mjs --room ABC123
 
 | 版本 | 内容 |
 |------|------|
-| **v1.2.8** | 房间列表改为「进入 / 删除」双按钮，删除需二次确认，失效房间保留可手动清理 |
+| **v1.2.9** | 入口脚本版本参数随发版更新（避免浏览器加载旧 app.js） |
+| v1.2.8 | 房间列表改为「进入 / 删除」双按钮，删除需二次确认，失效房间保留可手动清理 |
 | v1.2.7 | 新增 `room_tick`（读+应手一次完成）、桥接轮询 300ms、网页轮询 600ms |
 | v1.2.6 | 修正 KV key 格式（仅字母/数字/下划线，`room_XXXXXX`）、兼容 `globalThis` 绑定、404 改为 30s 重试阈值 |
 | v1.2.5 | 新增 `GET /api/storage-check` KV 自检、health 返回 `storageDetail`、房间弹层提示未启用 KV |
