@@ -117,6 +117,39 @@
         </div>
       </article>
 
+      <article class="game-card" data-open="tictactoe" tabindex="0" role="button">
+        <div class="card-art tt-art"><div class="mini-grid mini-3"><span>×</span><span></span><span>○</span><span></span><span>×</span><span></span><span>○</span><span></span><span>×</span></div><span class="art-tag">3 × 3</span></div>
+        <div class="card-body">
+          <div class="tag">九宫 · TIC-TAC-TOE</div>
+          <h3>井字棋</h3>
+          <p>三连即胜，规则极简。AI 走完美解，适合热身、快速局或教小孩。</p>
+          <div class="card-meta"><span>完美 AI</span><span>悔棋</span><span>联机</span><span>MCP</span></div>
+          <span class="card-cta">进入棋局 <i>→</i></span>
+        </div>
+      </article>
+
+      <article class="game-card" data-open="connect4" tabindex="0" role="button">
+        <div class="card-art c4-art"><div class="mini-grid mini-7"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span class="r"></span><span></span><span></span><span></span><span></span><span></span><span class="y"></span><span></span><span></span><span></span><span></span><span></span><span class="r"></span><span></span><span></span><span></span><span></span><span></span><span></span></div><span class="art-tag">7 × 6</span></div>
+        <div class="card-body">
+          <div class="tag">四连 · CONNECT FOUR</div>
+          <h3>四子棋</h3>
+          <p>重力落子，横竖斜任意四连即胜。AI 会抢中心、堵三连、算双杀。</p>
+          <div class="card-meta"><span>三档难度</span><span>悔棋</span><span>联机</span><span>MCP</span></div>
+          <span class="card-cta">进入棋局 <i>→</i></span>
+        </div>
+      </article>
+
+      <article class="game-card" data-open="othello" tabindex="0" role="button">
+        <div class="card-art oth-art"><div class="mini-grid mini-8"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span class="b"></span><span class="w"></span><span></span><span></span><span></span><span></span><span></span><span></span><span class="w"></span><span class="b"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div><span class="art-tag">8 × 8</span></div>
+        <div class="card-body">
+          <div class="tag">翻转 · OTHELLO</div>
+          <h3>黑白棋</h3>
+          <p>夹住即翻转，终局子多者胜。AI 重视角位与行动力，越下越狠。</p>
+          <div class="card-meta"><span>位置评估</span><span>悔棋</span><span>联机</span><span>MCP</span></div>
+          <span class="card-cta">进入棋局 <i>→</i></span>
+        </div>
+      </article>
+
       <article class="game-card mcp-card" id="cardMcp" tabindex="0" role="button">
         <div class="mcp-glyph">{&nbsp;}</div>
         <div class="card-body">
@@ -139,11 +172,11 @@
     <footer class="lobby-foot">
       <span>棋境 · 部署于 EdgeOne Makers</span>
       <span class="dot-sep"></span>
-      <span>五子棋 &amp; 中国象棋</span>
+      <span>6 种棋 · 联机 · MCP</span>
       <span class="dot-sep"></span>
       <span>MCP Streamable HTTP</span>
       <span class="dot-sep"></span>
-      <span>v1.3.1</span>
+      <span>v1.4.2</span>
     </footer>
   </section>
 
@@ -167,6 +200,7 @@
         <div class="board-frame" id="boardFrame">
           <canvas id="boardCanvas"></canvas>
           <canvas id="fxCanvas"></canvas>
+          <div class="board-mount" id="boardMount" hidden></div>
           <div class="board-shine"></div>
           <div class="thinking" id="thinking"><i></i><i></i><i></i><span>AI 思考中</span></div>
           <div class="board-toast" id="boardToast"></div>
@@ -263,6 +297,9 @@
           <select id="roomGame">
             <option value="gomoku">五子棋</option>
             <option value="chess">中国象棋</option>
+            <option value="tictactoe">井字棋</option>
+            <option value="connect4">四子棋</option>
+            <option value="othello">黑白棋</option>
           </select>
         </label>
         <label class="field">
@@ -402,6 +439,6 @@
 <div class="toast" id="toast" role="status"></div>
 <div class="confetti-layer" id="confettiLayer" aria-hidden="true"></div>
 
-<script type="module" src="js/app.js?v=1.3.1"></script>
+<script type="module" src="js/app.js?v=1.4.2"></script>
 </body>
 </html>

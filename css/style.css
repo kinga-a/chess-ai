@@ -573,3 +573,58 @@ body.gate-locked { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---------- grid board games ---------- */
+.board-mount {
+  position: absolute; inset: 0; display: flex;
+  align-items: center; justify-content: center; padding: 12px;
+}
+.board-mount[hidden] { display: none; }
+.board-frame.is-grid { aspect-ratio: 1; }
+.grid-board {
+  display: grid; gap: 6px; width: min(94%, 560px); padding: 10px;
+  border-radius: 16px; background: rgba(10, 16, 13, 0.62);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.35), 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+.grid-tictactoe { aspect-ratio: 1; }
+.grid-connect4 { aspect-ratio: 7 / 6; background: linear-gradient(180deg, #16324a, #0e2233); }
+.grid-othello { aspect-ratio: 1; background: #14503a; }
+.gcell {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; background: rgba(255, 255, 255, 0.04);
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+.grid-connect4 .gcell { border-radius: 50%; background: rgba(0, 0, 0, 0.24); }
+.gcell.playable { cursor: pointer; box-shadow: inset 0 0 0 1px rgba(217, 164, 65, 0.45); }
+.gcell.playable:hover { background: rgba(217, 164, 65, 0.14); }
+.disc { width: 78%; aspect-ratio: 1; border-radius: 50%; display: block; }
+.disc.p1 { background: radial-gradient(circle at 35% 30%, #ff8a7a, #c0392b); }
+.disc.p2 { background: radial-gradient(circle at 35% 30%, #ffe08a, #e0a800); }
+.grid-othello .disc.p1 { background: radial-gradient(circle at 35% 30%, #5a6a75, #101619); }
+.grid-othello .disc.p2 { background: radial-gradient(circle at 35% 30%, #ffffff, #cfd8dc); }
+.mark { font-family: var(--serif); font-size: clamp(26px, 6vw, 58px); line-height: 1; }
+.mark.p1 { color: #f0c36d; }
+.mark.p2 { color: #9fd8c0; }
+.hint-dot { width: 22%; aspect-ratio: 1; border-radius: 50%; background: rgba(217, 164, 65, 0.55); }
+.pop { animation: cellPop 0.28s ease; }
+@keyframes cellPop {
+  from { transform: scale(0.4); opacity: 0.3; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* lobby cards for the new games */
+.tt-art, .c4-art, .oth-art { display: grid; place-items: center; }
+.mini-grid { display: grid; gap: 4px; }
+.mini-3 { grid-template-columns: repeat(3, 34px); grid-auto-rows: 34px; }
+.mini-7 { grid-template-columns: repeat(7, 16px); grid-auto-rows: 16px; }
+.mini-8 { grid-template-columns: repeat(8, 15px); grid-auto-rows: 15px; }
+.mini-grid span {
+  background: rgba(255, 255, 255, 0.06); border-radius: 4px;
+  display: grid; place-items: center; color: var(--gold-2);
+  font-family: var(--serif); font-size: 22px;
+}
+.mini-7 span, .mini-8 span { font-size: 10px; }
+.mini-grid .r { background: #c0392b; border-radius: 50%; }
+.mini-grid .y { background: #e0a800; border-radius: 50%; }
+.mini-grid .b { background: #101619; border-radius: 50%; }
+.mini-grid .w { background: #e8eef0; border-radius: 50%; }

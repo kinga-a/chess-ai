@@ -6,6 +6,33 @@ import { readRoom, saveRoom, removeRoom, newCode } from './room-store.js';
 import { decodeBoard, encodeBoard, playMove, coordToLabel } from './gomoku-ai.js';
 import { START_FEN, applyMoveByLabel, labelOfIndex } from './chess-ai.js';
 import { chooseGomoku, chooseChess } from './ai-service.js';
+import * as ttt from './tictactoe-ai.js';
+import * as c4 from './connect4-ai.js';
+import * as oth from './othello-ai.js';
+
+const GRID = {
+  tictactoe: {
+    create: () => ttt.createBoard(),
+    apply: (board, move, player) => ttt.applyMove(board, move, player),
+    ai: (board, player, level) => ttt.findBestMove({ board, player, level }),
+    label: (move, board) => ttt.describeMove(move, ttt.boardSize(board)),
+    reason: 'three',
+  },
+  connect4: {
+    create: () => c4.createBoard(),
+    apply: (board, move, player) => c4.applyMove(board, move, player),
+    ai: (board, player, level) => c4.findBestMove({ board, player, level }),
+    label: (move) => c4.describeMove(move),
+    reason: 'four',
+  },
+  othello: {
+    create: () => oth.createBoard(),
+    apply: (board, move, player) => oth.applyMove(board, move, player),
+    ai: (board, player, level) => oth.findBestMove({ board, player, level }),
+    label: (move) => oth.describeMove(move),
+    reason: 'count',
+  },
+};
 
 const SIZE = 15;
 
@@ -39,15 +66,17 @@ export function parseGomokuMove(input) {
 }
 
 export async function createRoom(env, { game = 'gomoku', humanSide } = {}) {
-  const kind = game === 'chess' ? 'chess' : 'gomoku';
-  const human = kind === 'gomoku' ? (humanSide === 'second' ? 2 : 1) : humanSide === 'black' ? 'b' : 'w';
+  const kind = GRID[game] ? game : game === 'chess' ? 'chess' : 'gomoku';
+  const human = kind === 'chess'
+    ? (humanSide === 'black' ? 'b' : 'w')
+    : humanSide === 'second' ? 2 : 1;
   const room = {
     code: newCode(),
     game: kind,
     humanSide: human,
     guest: false,
     guestAt: null,
-    turn: kind === 'gomoku' ? 1 : 'w',
+    turn: kind === 'chess' ? 'w' : 1,
     status: 'playing',
     winner: null,
     reason: null,
@@ -55,7 +84,7 @@ export async function createRoom(env, { game = 'gomoku', humanSide } = {}) {
     version: 0,
     created: Date.now(),
     updated: Date.now(),
-    board: kind === 'gomoku' ? '0'.repeat(SIZE * SIZE) : null,
+    board: kind === 'gomoku' ? '0'.repeat(SIZE * SIZE) : GRID[kind] ? GRID[kind].create() : null,
     fen: kind === 'chess' ? START_FEN : null,
     lastEngine: null,
     lastTimeMs: null,
@@ -131,6 +160,26 @@ async function applyChess(env, room, from, to) {
   return saveRoom(env, room);
 }
 
+async function applyGridGame(env, room, move, player) {
+  const engine = GRID[room.game];
+  if (!engine) throw new RoomError('unknown game', 400);
+  const res = engine.apply(room.board, move, player);
+  if (!res) throw new RoomError('illegal move', 409);
+  room.board = res.board;
+  room.moves.push({ move, player, label: engine.label(move, res.board) });
+  room.turn = res.nextPlayer;
+  if (res.win) {
+    room.status = 'over';
+    room.winner = res.winner;
+    room.reason = engine.reason;
+  } else if (res.draw) {
+    room.status = 'over';
+    room.winner = 0;
+    room.reason = 'draw';
+  }
+  return saveRoom(env, room);
+}
+
 export async function playInRoom(env, code, payload = {}) {
   const room = await getRoom(env, code);
   if (room.status !== 'playing') throw new RoomError('game is already over', 409);
@@ -145,16 +194,38 @@ export async function playInRoom(env, code, payload = {}) {
   if (room.game === 'gomoku') {
     return applyGomoku(env, room, payload.move !== undefined ? payload.move : payload.index, room.turn);
   }
+  if (GRID[room.game]) {
+    if (!Number.isInteger(payload.move)) throw new RoomError('move (cell index or column) is required', 400);
+    return applyGridGame(env, room, payload.move, room.turn);
+  }
   if (!payload.from || !payload.to) throw new RoomError('from and to are required', 400);
   return applyChess(env, room, payload.from, payload.to);
+}
+
+export function aiSideOf(room) {
+  return room.game === 'chess'
+    ? room.humanSide === 'w' ? 'b' : 'w'
+    : room.humanSide === 1 ? 2 : 1;
 }
 
 export async function aiMoveInRoom(env, code, { level = 'normal', engine = 'local' } = {}) {
   const room = await getRoom(env, code);
   if (room.status !== 'playing') throw new RoomError('game is already over', 409);
+  if (String(room.turn) !== String(aiSideOf(room))) {
+    throw new RoomError('not the AI turn: human side is to move', 409);
+  }
   if (!room.guest) {
     room.guest = true;
     room.guestAt = Date.now();
+  }
+
+  if (GRID[room.game]) {
+    const started = Date.now();
+    const move = GRID[room.game].ai(room.board, room.turn, level);
+    if (move < 0) throw new RoomError('no legal move', 409);
+    room.lastEngine = 'minimax';
+    room.lastTimeMs = Date.now() - started;
+    return applyGridGame(env, room, move, room.turn);
   }
 
   if (room.game === 'gomoku') {
@@ -170,12 +241,36 @@ export async function aiMoveInRoom(env, code, { level = 'normal', engine = 'loca
   room.lastTimeMs = ai.timeMs;
   return applyChess(env, room, ai.fromLabel || labelOfIndex(ai.from), ai.toLabel || labelOfIndex(ai.to));
 }
+/** Restart the same room: fresh board, same code and sides. */
+export async function resetRoom(env, code) {
+  const room = await getRoom(env, code);
+  if (room.game === 'gomoku') {
+    room.board = '0'.repeat(SIZE * SIZE);
+    room.fen = null;
+    room.turn = 1;
+  } else if (room.game === 'chess') {
+    room.board = null;
+    room.fen = START_FEN;
+    room.turn = 'w';
+  } else {
+    room.board = GRID[room.game].create();
+    room.fen = null;
+    room.turn = 1;
+  }
+  room.status = 'playing';
+  room.winner = 0;
+  room.reason = null;
+  room.moves = [];
+  room.lastEngine = null;
+  room.lastTimeMs = null;
+  return saveRoom(env, room);
+}
+
 /** Read the room and answer in the same call when it is the AI's turn. */
 export async function tickRoom(env, code, { level = 'normal', engine = 'minimax' } = {}) {
   const room = await getRoom(env, code);
   if (room.status !== 'playing') return { room, moved: false };
-  const aiSide = room.game === 'gomoku' ? (room.humanSide === 1 ? 2 : 1) : room.humanSide === 'w' ? 'b' : 'w';
-  if (String(room.turn) !== String(aiSide)) return { room, moved: false };
+  if (String(room.turn) !== String(aiSideOf(room))) return { room, moved: false };
   const next = await aiMoveInRoom(env, code, { level, engine });
   return { room: next, moved: true };
 }

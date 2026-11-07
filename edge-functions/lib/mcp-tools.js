@@ -4,7 +4,7 @@ export const PROTOCOL_VERSION = '2025-03-26';
 export const SERVER_INFO = {
   name: 'edgeone-chess-ai',
   title: '棋境 · EdgeOne AI 棋馆',
-  version: '1.3.1',
+  version: '1.4.2',
 };
 
 export const RULES_GOMOKU =
@@ -165,7 +165,7 @@ export const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        game: { type: 'string', enum: ['gomoku', 'chess'], description: '默认 gomoku' },
+        game: { type: 'string', enum: ['gomoku', 'chess', 'tictactoe', 'connect4', 'othello'], description: '默认 gomoku' },
         humanSide: {
           type: 'string',
           enum: ['first', 'second', 'red', 'black'],

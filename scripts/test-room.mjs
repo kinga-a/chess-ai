@@ -98,6 +98,17 @@ ok('join flags guest', firstJoin.status === 200 && firstJoin.data.room.guest ===
 const againJoin = await api('join', { code: jCode });
 ok('join is idempotent', againJoin.data.room.version === firstJoin.data.room.version);
 
+// AI turn guard: AI must never move the human's side
+const guardRoom = await api('create', { game: 'chess', humanSide: 'red' });
+const guard = await api('ai_move', { code: guardRoom.data.room.code });
+ok('AI cannot move for the human (chess)', guard.status === 409);
+const openRoom = await api('create', { game: 'chess', humanSide: 'black' });
+const opener = await api('ai_move', { code: openRoom.data.room.code });
+ok('AI opens when human is second (chess)', opener.status === 200 && opener.data.room.moves.length === 1);
+const guardGrid = await api('create', { game: 'othello', humanSide: 'first' });
+const guardGridAi = await api('ai_move', { code: guardGrid.data.room.code });
+ok('AI cannot move for the human (othello)', guardGridAi.status === 409);
+
 // MCP room tools
 const mcpRoom = await call('room_create', { game: 'gomoku', humanSide: 'first' });
 ok('MCP room_create', !!mcpRoom.code, mcpRoom.code);

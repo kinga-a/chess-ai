@@ -1,6 +1,6 @@
 # 棋境 · EdgeOne AI 棋馆
 
-> 当前版本 **v1.3.1**
+> 当前版本 **v1.4.2**
 
 部署在 **EdgeOne Makers** 上的五子棋 + 中国象棋 AI 对弈馆。零依赖单页前端，内置本地 minimax 引擎、边缘函数 AI 接口，以及一个 **MCP Server**——任何支持 MCP 的 AI 客户端（Claude Desktop、Cursor、自研 Agent）都能直接接入，实时查局、走子、让 AI 落子。
 
@@ -9,9 +9,12 @@
 | 能力 | 说明 |
 |------|------|
 | 五子棋 | 15×15，棋型评分 + 候选点剪枝 + 迭代加深 negamax + 必胜/必防判定 |
+| 井字棋 | 3×3 九宫格，完美解 AI，支持 4×4 变体引擎 |
+| 四子棋 | 7×6 重力落子，alpha-beta + 窗口评分 |
+| 黑白棋 | 8×8 翻转，位置权重 + 行动力评估，自动跳过无子可走 |
 | 中国象棋 | 标准 FEN/ICCS，蹩马腿、塞象眼、炮翻山、过河兵、九宫、将帅照面、将死困毙 |
 | 三种 AI 引擎 | `local`（浏览器 Web Worker）→ `edge`（边缘函数）→ `llm`（大模型接管），逐级自动降级 |
-| MCP Server | Streamable HTTP + JSON-RPC 2.0，14 个工具（含 4 个联机房间工具），无状态棋局 |
+| MCP Server | Streamable HTTP + JSON-RPC 2.0，15 个工具（含 5 个联机房间工具），房间支持 5 种棋 |
 | **访问控制** | 网页用 `ADMIN_PASS`、MCP 用 `ACCESS_KEY`，两把密钥独立；Bearer 校验 + 失败限速 |
 | **实时联机** | 6 位房间码双人同盘，网页轮询自动同步；MCP 客户端或 bridge 可直接在房间落子 |
 | 体验 | 粒子/涟漪/彩带特效、Web Audio 合成音效、悔棋、棋谱、移动端适配、localStorage 战绩 |
@@ -34,9 +37,13 @@
 │   │   └── fx.js               # 粒子特效
 │   ├── ai/
 │   │   ├── gomoku-ai.js        # 五子棋引擎（前端与边缘同构）
+│   │   ├── chess-ai.js         # 中国象棋引擎
+│   │   ├── tictactoe-ai.js     # 井字棋引擎
+│   │   ├── connect4-ai.js      # 四子棋引擎
+│   │   ├── othello-ai.js       # 黑白棋引擎
 │   │   ├── chess-ai.js         # 中国象棋引擎（前端与边缘同构）
 │   │   └── worker.js           # AI Web Worker，避免阻塞 UI
-│   └── games/                  # 两棋局的渲染与交互
+│   └── games/                  # 各棋局控制器（五子棋/象棋/井字棋/四子棋/黑白棋）
 ├── edge-functions/
 │   ├── api/health.js           # GET /api/health（公开，报告鉴权状态）
 │   ├── api/auth/check.js       # POST /api/auth/check（校验口令）
@@ -260,7 +267,10 @@ BASE=https://<域名> ACCESS_KEY=<key> node scripts/mcp-bridge.mjs --room ABC123
 
 | 版本 | 内容 |
 |------|------|
-| **v1.3.1** | 固定 Blob SDK `0.0.19`、SDK 失败 60 秒后自动重试、storageDetail 实际探测方法 |
+| **v1.4.2** | 修复房间内「新开一局」：调用 `action: "reset"` 真正重开，房间码不变 |
+| v1.4.1 | 修复先后手：AI 只能走 AI 方，人类回合调用 `ai_move` 返回 409 |
+| v1.4.0 | 新增井字棋、四子棋、黑白棋（AI + 联机 + MCP）；房间支持 5 种棋 |
+| v1.3.1 | 固定 Blob SDK `0.0.19`、SDK 失败 60 秒后自动重试、storageDetail 实际探测方法 |
 | v1.3.0 | 房间改用 Blob 强一致存储（KV 回退），落子/结束即时可见；新增 `@edgeone/pages-blob` 依赖 |
 | v1.2.9 | 入口脚本版本参数随发版更新（避免浏览器加载旧 app.js） |
 | v1.2.8 | 房间列表改为「进入 / 删除」双按钮，删除需二次确认，失效房间保留可手动清理 |

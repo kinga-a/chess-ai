@@ -6,6 +6,7 @@ import { GomokuGame } from './games/gomoku.js';
 import { ChessGame } from './games/chess.js';
 import { initAccessGate } from './auth-gate.js';
 import { RoomClient } from './room-client.js';
+import { BoardGame, BOARD_GAME_IDS } from './games/board-game.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -144,27 +145,71 @@ function showLobby() {
   renderStats();
 }
 
+const SIDE_NAMES = {
+  gomoku: { 1: '黑', 2: '白' },
+  tictactoe: { 1: '×', 2: '○' },
+  connect4: { 1: '红', 2: '黄' },
+  othello: { 1: '黑', 2: '白' },
+};
+
+const GAME_NAMES = {
+  gomoku: '五子棋',
+  chess: '中国象棋',
+  tictactoe: '井字棋',
+  connect4: '四子棋',
+  othello: '黑白棋',
+};
+
+const GAME_META = {
+  gomoku: { name: '五子棋', sub: 'GOMOKU · 15×15 · 自由规则', side: ['先手（黑）', '后手（白）'], grid: false },
+  chess: { name: '中国象棋', sub: 'XIANGQI · 9×10 · 完整规则', side: ['先手（红）', '后手（黑）'], grid: false },
+  tictactoe: { name: '井字棋', sub: 'TIC-TAC-TOE · 3×3 · 三连即胜', side: ['先手（×）', '后手（○）'], grid: true },
+  connect4: { name: '四子棋', sub: 'CONNECT FOUR · 7×6 · 四连即胜', side: ['先手（红）', '后手（黄）'], grid: true },
+  othello: { name: '黑白棋', sub: 'OTHELLO · 8×8 · 子多者胜', side: ['先手（黑）', '后手（白）'], grid: true },
+};
+
+const HELP_HTML = {
+  gomoku: `<p><b>目标：</b>在 15×15 棋盘上率先连成五子（横、竖、斜）。</p>
+    <p><b>操作：</b>点击交叉点落子。你执黑先行或执白后行，AI 会自动应手。</p>
+    <p><b>悔棋：</b>撤回你与 AI 的最后一回合。</p>
+    <p><b>引擎：</b>本地 Worker 零延迟；边缘函数由 EdgeOne 就近计算；大模型接管需要配置 Key，失败时自动回退。</p>`,
+  chess: `<p><b>目标：</b>将死对方将/帅。红方先行，双方轮流走子。</p>
+    <p><b>操作：</b>点击己方棋子选中，再点击合法落点走子。绿色点为可走位置，红圈为可吃棋子。</p>
+    <p><b>规则：</b>蹩马腿、塞象眼、炮翻山、兵卒过河可横走、仕士与将帅不可出九宫、将帅不可照面（飞将）。</p>
+    <p><b>胜负：</b>被将死或无子可走（困毙）均判负。</p>`,
+  tictactoe: `<p><b>目标：</b>在 3×3 九宫格中率先连成三点（横、竖、斜）。</p>
+    <p><b>操作：</b>点击空格落子，你走 × 或 ○，AI 自动应手。</p>
+    <p><b>难度：</b>大师档走完美解，先手不会输；入门档会偶尔失误。</p>
+    <p><b>联机：</b>创建房间后，对方用同一房间码即可同盘对弈。</p>`,
+  connect4: `<p><b>目标：</b>在 7×6 棋盘中率先连成四子（横、竖、斜）。</p>
+    <p><b>操作：</b>点击任意列，棋子受重力落到底部；列满则不能落子。</p>
+    <p><b>提示：</b>可落子的列会高亮。AI 会抢中心、堵三连、计算双杀。</p>
+    <p><b>联机：</b>双方共用同一房间，落子实时同步。</p>`,
+  othello: `<p><b>目标：</b>终局时己方棋子数量多于对手。</p>
+    <p><b>操作：</b>点击带提示的格子，落子后夹住的对方棋子全部翻转。</p>
+    <p><b>规则：</b>必须至少翻转一子；无合法着法时自动跳过；双方都无着法则终局计分。</p>
+    <p><b>联机：</b>无合法着法会自动跳过，网页与 MCP 行为一致。</p>`,
+};
+
 function updateShell(id) {
-  const isGomoku = id === 'gomoku';
-  $('#gameName').textContent = isGomoku ? '五子棋' : '中国象棋';
-  $('#gameSub').textContent = isGomoku ? 'GOMOKU · 15×15 · 自由规则' : 'XIANGQI · 9×10 · 完整规则';
-  $('#boardFrame').classList.toggle('is-chess', !isGomoku);
+  const meta = GAME_META[id] || GAME_META.gomoku;
+  $('#gameName').textContent = meta.name;
+  $('#gameSub').textContent = meta.sub;
+  $('#boardFrame').classList.toggle('is-chess', id === 'chess');
+  $('#boardFrame').classList.toggle('is-grid', meta.grid);
+  const grid = !!meta.grid;
+  $('#boardCanvas').hidden = grid;
+  $('#fxCanvas').hidden = grid;
+  const mount = $('#boardMount');
+  if (mount) mount.hidden = !grid;
   const sideSelect = $('#sideSelect');
-  sideSelect.options[0].textContent = isGomoku ? '先手（黑）' : '先手（红）';
-  sideSelect.options[1].textContent = isGomoku ? '后手（白）' : '后手（黑）';
+  sideSelect.options[0].textContent = meta.side[0];
+  sideSelect.options[1].textContent = meta.side[1];
   sideSelect.value = state.settings.side;
   $('#levelSelect').value = state.settings.level;
   $('#engineSelect').value = state.settings.engine;
-  $('#helpTitle').textContent = isGomoku ? '五子棋规则' : '中国象棋规则';
-  $('#helpBody').innerHTML = isGomoku
-    ? `<p><b>目标：</b>在 15×15 棋盘上率先连成五子（横、竖、斜）。</p>
-       <p><b>操作：</b>点击交叉点落子。你执黑先行或执白后行，AI 会自动应手。</p>
-       <p><b>悔棋：</b>撤回你与 AI 的最后一回合。</p>
-       <p><b>引擎：</b>本地 Worker 零延迟；边缘函数由 EdgeOne 就近计算；大模型接管需要配置 Key，失败时自动回退。</p>`
-    : `<p><b>目标：</b>将死对方将/帅。红方先行，双方轮流走子。</p>
-       <p><b>操作：</b>点击己方棋子选中，再点击合法落点走子。绿色点为可走位置，红圈为可吃棋子。</p>
-       <p><b>规则：</b>蹩马腿、塞象眼、炮翻山、兵卒过河可横走、仕士与将帅不可出九宫、将帅不可照面（飞将）。</p>
-       <p><b>胜负：</b>被将死或无子可走（困毙）均判负。</p>`;
+  $('#helpTitle').textContent = `${meta.name}规则`;
+  $('#helpBody').innerHTML = HELP_HTML[id] || HELP_HTML.gomoku;
 }
 
 function createGame(id) {
@@ -187,14 +232,26 @@ function createGame(id) {
     engineClient,
     hooks,
   };
-  const game = id === 'gomoku' ? new GomokuGame(common) : new ChessGame(common);
+  let game;
+  if (id === 'gomoku') game = new GomokuGame(common);
+  else if (id === 'chess') game = new ChessGame(common);
+  else game = new BoardGame({ id, mount: $('#boardMount'), hooks, audio });
   game.id = id;
   return game;
 }
 
-function startNewGame() {
+async function startNewGame({ reset = false } = {}) {
   if (!state.activeGame) return;
   $('#resultModal').classList.remove('open');
+  if (reset && state.room) {
+    try {
+      const room = await state.roomClient.resetGame();
+      state.room = room;
+      renderRoomBar(room);
+    } catch (err) {
+      toast(err.message || '重开房间失败');
+    }
+  }
   state.activeGame.newGame({
     ...state.settings,
     roomClient: state.room ? state.roomClient : undefined,
@@ -254,7 +311,7 @@ function renderRoomBook() {
   wrap.hidden = rooms.length === 0;
   list.innerHTML = rooms
     .map((room) => {
-      const game = room.game === 'chess' ? '中国象棋' : '五子棋';
+      const game = GAME_NAMES[room.game] || '五子棋';
       const role = room.role === 'host' ? '我创建' : '我加入';
       const state = room.missing ? '已失效 · 可删除' : `${game} · ${role}`;
       return (
@@ -332,8 +389,9 @@ async function clearSavedRooms() {
 }
 
 function roomSideLabel(game, side) {
-  if (game === 'gomoku') return side === 1 ? '你执黑' : '你执白';
-  return side === 'w' ? '你执红' : '你执黑';
+  if (game === 'chess') return side === 'w' ? '你执红' : '你执黑';
+  const names = SIDE_NAMES[game] || SIDE_NAMES.gomoku;
+  return `你执${names[side]}`;
 }
 
 function renderRoomBar(room) {
@@ -406,7 +464,7 @@ function enterRoom(room) {
 async function createRoom() {
   const game = $('#roomGame').value || state.currentGame || 'gomoku';
   const side = $('#roomSide').value;
-  const humanSide = game === 'gomoku' ? side : side === 'first' ? 'red' : 'black';
+  const humanSide = game === 'chess' ? (side === 'first' ? 'red' : 'black') : side;
   const error = $('#roomError');
   error.textContent = '';
   $('#roomCreate').disabled = true;
@@ -452,9 +510,9 @@ function leaveRoom() {
 function syncRoomSideOptions() {
   const gameSelect = $('#roomGame');
   const sideSelect = $('#roomSide');
-  const gomoku = !gameSelect || gameSelect.value !== 'chess';
-  sideSelect.options[0].textContent = gomoku ? '先手（黑）' : '先手（红）';
-  sideSelect.options[1].textContent = gomoku ? '后手（白）' : '后手（黑）';
+  const meta = GAME_META[gameSelect ? gameSelect.value : 'gomoku'] || GAME_META.gomoku;
+  sideSelect.options[0].textContent = meta.side[0];
+  sideSelect.options[1].textContent = meta.side[1];
 }
 
 function openRoomPanel() {
@@ -482,10 +540,10 @@ function renderGameState(s) {
   const dot = $('#turnSide .dot');
   const label = $('#turnSide b');
   dot.className = 'dot';
-  if (s.game === 'gomoku') {
-    dot.classList.add(s.turn === 1 ? 'black' : 'white');
-  } else {
+  if (s.game === 'chess') {
     dot.classList.add(s.turn === 'w' ? 'red' : 'black');
+  } else {
+    dot.classList.add(s.turn === 1 ? 'black' : 'white');
   }
   if (s.thinking) dot.classList.add('ai');
 
@@ -499,7 +557,9 @@ function renderGameState(s) {
     label.textContent = '等待 AI';
   }
 
-  const sideName = s.game === 'gomoku' ? (s.human === 1 ? '黑' : '白') : (s.human === 'w' ? '红' : '黑');
+  const sideName = s.game === 'chess'
+    ? (s.human === 'w' ? '红' : '黑')
+    : (SIDE_NAMES[s.game] || SIDE_NAMES.gomoku)[s.human];
   $('#turnInfo').textContent = `执${sideName} · 第 ${s.moveCount + (s.status === 'playing' ? 1 : 0)} 手${s.check ? ' · 将军' : ''}`;
 
   $('#thinking').classList.toggle('show', !!s.thinking);
@@ -519,7 +579,8 @@ function renderRecord(s) {
     list.innerHTML = '<li class="empty">暂无着法</li>';
     return;
   }
-  if (s.game === 'gomoku') {
+  if (s.game !== 'chess') {
+    const names = SIDE_NAMES[s.game] || SIDE_NAMES.gomoku;
     const rows = [];
     for (let i = 0; i < s.record.length; i += 2) {
       const a = s.record[i];
@@ -527,8 +588,8 @@ function renderRecord(s) {
       const latest = i + 1 >= s.record.length - 1;
       rows.push(
         `<li><span class="rn">${i / 2 + 1}</span>` +
-          `<span class="mv${a.player === 2 ? ' ai' : ''}${latest && !b ? ' latest' : ''}">${a.player === 1 ? '黑' : '白'} ${a.label}</span>` +
-          `<span class="mv${b && b.player === 2 ? ' ai' : ''}${latest && b ? ' latest' : ''}">${b ? `${b.player === 1 ? '黑' : '白'} ${b.label}` : ''}</span></li>`,
+          `<span class="mv${a.player === 2 ? ' ai' : ''}${latest && !b ? ' latest' : ''}">${names[a.player]} ${a.label}</span>` +
+          `<span class="mv${b && b.player === 2 ? ' ai' : ''}${latest && b ? ' latest' : ''}">${b ? `${names[b.player]} ${b.label}` : ''}</span></li>`,
       );
     }
     list.innerHTML = rows.join('');
@@ -951,8 +1012,8 @@ function bindUI() {
   $('#newGameBtn').addEventListener('click', () => {
     audio.unlock();
     audio.click();
-    startNewGame();
-    toast('新的一局开始了');
+    startNewGame({ reset: true });
+    toast(state.room ? '房间已重开' : '新的一局开始了');
   });
   $('#undoBtn').addEventListener('click', () => {
     if (!state.activeGame) return;
@@ -1007,7 +1068,7 @@ function bindUI() {
 
   $('#againBtn').addEventListener('click', () => {
     closeModal('resultModal');
-    startNewGame();
+    startNewGame({ reset: true });
   });
   $('#lobbyBtn').addEventListener('click', () => {
     closeModal('resultModal');
@@ -1047,7 +1108,7 @@ async function boot() {
 
   const params = new URLSearchParams(location.search);
   const game = params.get('game');
-  if (game === 'gomoku' || game === 'chess') {
+  if (game && GAME_META[game]) {
     openGame(game);
   }
 

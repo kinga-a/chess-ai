@@ -9,8 +9,8 @@ const MISS_LIMIT = 25;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function otherSide(room) {
-  if (room.game === 'gomoku') return room.humanSide === 1 ? 2 : 1;
-  return room.humanSide === 'w' ? 'b' : 'w';
+  if (room.game === 'chess') return room.humanSide === 'w' ? 'b' : 'w';
+  return room.humanSide === 1 ? 2 : 1;
 }
 
 async function readRoom(res) {
@@ -142,6 +142,12 @@ export class RoomClient {
 
   async aiMove(options = {}) {
     const room = await this.post('ai_move', { code: this.code, ...options });
+    this.attach(room);
+    return room;
+  }
+
+  async resetGame() {
+    const room = await this.post('reset', { code: this.code });
     this.attach(room);
     return room;
   }
