@@ -4,7 +4,7 @@ export const PROTOCOL_VERSION = '2025-03-26';
 export const SERVER_INFO = {
   name: 'edgeone-chess-ai',
   title: '棋境 · EdgeOne AI 棋馆',
-  version: '1.2.6',
+  version: '1.2.8',
 };
 
 export const RULES_GOMOKU =
@@ -219,6 +219,23 @@ export const TOOLS = [
     title: '房间 AI 应手',
     description:
       '让服务端 AI 在当前房间落一手并写回房间；网页端轮询即可看到这步棋。engine=llm 时优先大模型。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        code: { type: 'string', pattern: '^[A-Z0-9]{6}$' },
+        level: { type: 'string', enum: ['easy', 'normal', 'hard'] },
+        engine: { type: 'string', enum: ['minimax', 'llm'] },
+      },
+      required: ['code'],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false },
+  },
+  {
+    name: 'room_tick',
+    title: '房间轮询并应手',
+    description:
+      '一次调用完成「读局面 + 轮到自己则落子」，适合桥接高频轮询，比 room_state + room_ai_move 少一半往返。',
     inputSchema: {
       type: 'object',
       properties: {

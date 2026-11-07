@@ -24,7 +24,7 @@ import {
 import { chooseGomoku, chooseChess } from './ai-service.js';
 import { llmConfig } from './llm.js';
 import { TOOLS, PROTOCOL_VERSION, SERVER_INFO, RULES_GOMOKU, RULES_CHESS } from './mcp-tools.js';
-import { createRoom, getRoom, playInRoom, aiMoveInRoom } from './rooms.js';
+import { createRoom, getRoom, playInRoom, aiMoveInRoom, tickRoom } from './rooms.js';
 
 function parseGomokuMove(input, size = 15) {
   if (Array.isArray(input) && input.length === 2) {
@@ -321,6 +321,8 @@ export async function callTool(name, args = {}, env = {}) {
       return playInRoom(env, a.code, a);
     case 'room_ai_move':
       return aiMoveInRoom(env, a.code, { level: a.level, engine: a.engine });
+    case 'room_tick':
+      return tickRoom(env, a.code, { level: a.level, engine: a.engine });
     case 'game_info':
       return gameInfo(env);
     default:

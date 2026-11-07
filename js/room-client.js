@@ -3,7 +3,7 @@
  */
 import { apiFetch } from './core/api.js';
 
-const POLL_MS = 1200;
+const POLL_MS = 600;
 const MISS_LIMIT = 25;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -69,12 +69,12 @@ export class RoomClient {
   async join(code) {
     const normalized = String(code).trim().toUpperCase();
     let room = null;
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         room = await this.fetch(normalized);
         break;
       } catch (err) {
-        if (err.status !== 404 || attempt === 4) throw err;
+        if (err.status !== 404 || attempt === 2) throw err;
         await sleep(500);
       }
     }
@@ -88,12 +88,12 @@ export class RoomClient {
   async rejoin(code, role) {
     const normalized = String(code).trim().toUpperCase();
     let room = null;
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         room = await this.fetch(normalized);
         break;
       } catch (err) {
-        if (err.status !== 404 || attempt === 4) throw err;
+        if (err.status !== 404 || attempt === 2) throw err;
         await sleep(500);
       }
     }

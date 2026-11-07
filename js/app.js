@@ -230,7 +230,13 @@ function saveRoomBook(list) {
 function rememberRoom(room, role) {
   const previous = loadRoomBook().find((item) => item.code === room.code);
   const next = loadRoomBook().filter((item) => item.code !== room.code);
-  next.unshift({ code: room.code, game: room.game, role: previous ? previous.role : role, at: Date.now() });
+  next.unshift({
+    code: room.code,
+    game: room.game,
+    role: previous ? previous.role : role,
+    at: Date.now(),
+    missing: false,
+  });
   saveRoomBook(next);
   renderRoomBook();
 }
@@ -250,10 +256,14 @@ function renderRoomBook() {
     .map((room) => {
       const game = room.game === 'chess' ? '中国象棋' : '五子棋';
       const role = room.role === 'host' ? '我创建' : '我加入';
+      const state = room.missing ? '已失效 · 可删除' : `${game} · ${role}`;
       return (
-        `<li><button class="room-open" data-open-room="${room.code}">` +
-        `<code>${room.code}</code><span>${game} · ${role}</span></button>` +
-        `<button class="room-del" data-del-room="${room.code}" aria-label="删除房间">✕</button></li>`
+        `<li class="${room.missing ? 'is-missing' : ''}">` +
+        `<div class="room-info"><code>${room.code}</code><span>${state}</span></div>` +
+        `<div class="room-ops">` +
+        `<button class="btn ghost sm" data-open-room="${room.code}">进入</button>` +
+        `<button class="btn ghost sm room-del" data-del-room="${room.code}">删除</button>` +
+        `</div></li>`
       );
     })
     .join('');
@@ -266,9 +276,39 @@ async function openSavedRoom(code) {
     rememberRoom(room, entry ? entry.role : 'guest');
     enterRoom(room);
   } catch (_) {
-    forgetRoom(code);
-    toast('房间已失效，已从列表移除');
+    const rooms = loadRoomBook();
+    const target = rooms.find((item) => item.code === code);
+    if (target) {
+      target.missing = true;
+      saveRoomBook(rooms);
+      renderRoomBook();
+    }
+    toast('房间已失效，可点击「删除」清理');
   }
+}
+
+let pendingDelete = '';
+let pendingDeleteTimer = 0;
+
+function armDelete(code, button) {
+  if (pendingDelete === code) {
+    pendingDelete = '';
+    clearTimeout(pendingDeleteTimer);
+    deleteSavedRoom(code);
+    return;
+  }
+  pendingDelete = code;
+  clearTimeout(pendingDeleteTimer);
+  $$('[data-del-room]').forEach((el) => {
+    el.classList.remove('confirm');
+    el.textContent = '删除';
+  });
+  button.classList.add('confirm');
+  button.textContent = '确认删除';
+  pendingDeleteTimer = setTimeout(() => {
+    pendingDelete = '';
+    renderRoomBook();
+  }, 3000);
 }
 
 async function deleteSavedRoom(code) {
@@ -882,7 +922,7 @@ function bindUI() {
   $('#roomBookList').addEventListener('click', (event) => {
     const del = event.target.closest('[data-del-room]');
     if (del) {
-      deleteSavedRoom(del.dataset.delRoom);
+      armDelete(del.dataset.delRoom, del);
       return;
     }
     const open = event.target.closest('[data-open-room]');

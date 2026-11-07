@@ -170,3 +170,12 @@ export async function aiMoveInRoom(env, code, { level = 'normal', engine = 'loca
   room.lastTimeMs = ai.timeMs;
   return applyChess(env, room, ai.fromLabel || labelOfIndex(ai.from), ai.toLabel || labelOfIndex(ai.to));
 }
+/** Read the room and answer in the same call when it is the AI's turn. */
+export async function tickRoom(env, code, { level = 'normal', engine = 'minimax' } = {}) {
+  const room = await getRoom(env, code);
+  if (room.status !== 'playing') return { room, moved: false };
+  const aiSide = room.game === 'gomoku' ? (room.humanSide === 1 ? 2 : 1) : room.humanSide === 'w' ? 'b' : 'w';
+  if (String(room.turn) !== String(aiSide)) return { room, moved: false };
+  const next = await aiMoveInRoom(env, code, { level, engine });
+  return { room: next, moved: true };
+}

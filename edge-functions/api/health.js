@@ -13,7 +13,7 @@ export async function onRequestGet(context) {
     ok: true,
     service: 'edgeone-chess-ai',
     title: '棋境 · EdgeOne AI 棋馆',
-    version: '1.2.6',
+    version: '1.2.8',
     games: ['gomoku', 'chess'],
     mcp: '/api/mcp',
     auth: {
