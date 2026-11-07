@@ -4,7 +4,7 @@
  */
 import { json, corsPreflight, readJson } from '../lib/http.js';
 import { requireAccess } from '../lib/auth.js';
-import { createRoom, getRoom, playInRoom, aiMoveInRoom, closeRoom, RoomError } from '../lib/rooms.js';
+import { createRoom, getRoom, playInRoom, aiMoveInRoom, closeRoom, joinRoom, RoomError } from '../lib/rooms.js';
 
 function fail(err) {
   const status = err instanceof RoomError ? err.status : 500;
@@ -41,6 +41,10 @@ export async function onRequestPost(context) {
   try {
     if (action === 'create') {
       const room = await createRoom(env, { game: body.game, humanSide: body.humanSide });
+      return json({ ok: true, room });
+    }
+    if (action === 'join') {
+      const room = await joinRoom(env, body.code);
       return json({ ok: true, room });
     }
     if (action === 'move') {

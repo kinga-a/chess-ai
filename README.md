@@ -1,6 +1,6 @@
 # 棋境 · EdgeOne AI 棋馆
 
-> 当前版本 **v1.2.0**
+> 当前版本 **v1.2.3**
 
 部署在 **EdgeOne Makers** 上的五子棋 + 中国象棋 AI 对弈馆。零依赖单页前端，内置本地 minimax 引擎、边缘函数 AI 接口，以及一个 **MCP Server**——任何支持 MCP 的 AI 客户端（Claude Desktop、Cursor、自研 Agent）都能直接接入，实时查局、走子、让 AI 落子。
 
@@ -140,8 +140,8 @@ edgeone deploy
 联机房间默认放在函数进程内存里。Edge Functions 是弹性多实例，A 实例写入的房间 B 实例读不到，轮询就可能 404 或不同步；**正式公网部署请绑定 KV**。
 
 1. EdgeOne 控制台 → **KV 存储** → 新建命名空间（如 `qijing-rooms`）；
-2. 项目 → 环境变量 / 绑定 → 新增绑定，**变量名必须为 `KV`**；
-3. 重新部署。代码检测到 `env.KV` 后自动启用，无需改动逻辑。
+2. 项目 → 环境变量 / 绑定 → 新增绑定，**变量名必须为 `CHESS_KV`**；
+3. 重新部署。代码检测到 `env.CHESS_KV` 后自动启用（仍兼容旧的 `env.KV`），无需改动逻辑。
 
 存储键：`room:<6位房间码>`，值为整个房间的 JSON：
 
@@ -260,7 +260,10 @@ BASE=https://<域名> ACCESS_KEY=<key> node scripts/mcp-bridge.mjs --room ABC123
 
 | 版本 | 内容 |
 |------|------|
-| **v1.2.0** | 双密钥分离（`ADMIN_PASS` 网页 / `ACCESS_KEY` MCP）、房间簿与房间删除、KV 存储说明、MCP 14 个工具 |
+| **v1.2.3** | KV 绑定变量名改为 `CHESS_KV`（兼容旧 `KV`） |
+| v1.2.2 | 进入房间提示：房主实时收到「对手已加入房间」 |
+| v1.2.1 | 修复音频自动播放与 aria-hidden 焦点告警；health 增加 `storage` 字段（kv/memory） |
+| v1.2.0 | 双密钥分离（`ADMIN_PASS` 网页 / `ACCESS_KEY` MCP）、房间簿与房间删除、KV 存储说明、MCP 14 个工具 |
 | v1.1.0 | 实时联机房间、AI 桥接、网页轮询同步 |
 | v1.0.0 | 五子棋 + 中国象棋、本地/边缘/LLM 引擎、MCP 10 个工具、访问密钥 |
 

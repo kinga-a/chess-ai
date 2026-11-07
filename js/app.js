@@ -262,7 +262,7 @@ function renderRoomBook() {
 async function openSavedRoom(code) {
   const entry = loadRoomBook().find((item) => item.code === code);
   try {
-    const room = await state.roomClient.join(code);
+    const room = await state.roomClient.rejoin(code, entry ? entry.role : 'guest');
     rememberRoom(room, entry ? entry.role : 'guest');
     enterRoom(room);
   } catch (_) {
@@ -318,9 +318,11 @@ function renderRoomBar(room) {
     hint.textContent =
       room.status === 'over'
         ? '对局已结束'
-        : room.turn === mySide
-          ? '轮到你落子'
-          : '等待对手落子…';
+        : !room.guest
+          ? '等待对手加入…'
+          : room.turn === mySide
+            ? '轮到你落子'
+            : '等待对手落子…';
   }
 }
 
@@ -328,7 +330,12 @@ function enterRoom(room) {
   state.room = room;
   state.roomClient.start(
     (next) => {
+      const previous = state.room;
       state.room = next;
+      if (previous && !previous.guest && next.guest) {
+        toast('对手已加入房间');
+        audio.play('select');
+      }
       renderRoomBar(next);
       if (state.activeGame && state.activeGame.id === next.game) state.activeGame.syncRoom(next);
     },
@@ -340,7 +347,7 @@ function enterRoom(room) {
   if (state.currentGame !== room.game) openGame(room.game);
   else startNewGame();
   renderRoomBar(room);
-  toast(`已进入房间 ${room.code}`);
+  toast(room.guest ? `已进入房间 ${room.code}` : `房间 ${room.code} 已创建，等待对手加入`);
 }
 
 async function createRoom() {
@@ -579,12 +586,32 @@ function fillMcp() {
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`;
 }
 
+let modalReturnFocus = null;
+
 function openModal(id) {
-  $('#' + id).classList.add('open');
+  const el = $('#' + id);
+  if (!el) return;
+  modalReturnFocus = document.activeElement;
+  el.classList.add('open');
+  el.setAttribute('aria-hidden', 'false');
+  const target = el.querySelector('.modal-close');
+  if (target) setTimeout(() => target.focus({ preventScroll: true }), 60);
 }
 
 function closeModal(id) {
-  $('#' + id).classList.remove('open');
+  const el = $('#' + id);
+  if (!el) return;
+  el.classList.remove('open');
+  el.setAttribute('aria-hidden', 'true');
+  if (el.contains(document.activeElement)) document.activeElement.blur();
+  if (modalReturnFocus && typeof modalReturnFocus.focus === 'function') {
+    try {
+      modalReturnFocus.focus({ preventScroll: true });
+    } catch (_) {
+      /* element may be gone */
+    }
+  }
+  modalReturnFocus = null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -853,7 +880,7 @@ function bindUI() {
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      $$('.modal.open').forEach((m) => m.classList.remove('open'));
+      $$('.modal.open').forEach((m) => closeModal(m.id));
     }
   });
 
@@ -968,7 +995,15 @@ async function boot() {
   if (game === 'gomoku' || game === 'chess') {
     openGame(game);
   }
-  audio.unlock();
+
+  // Browsers only allow audio after a user gesture: unlock on the first one.
+  const unlockAudio = () => {
+    audio.unlock();
+    window.removeEventListener('pointerdown', unlockAudio);
+    window.removeEventListener('keydown', unlockAudio);
+  };
+  window.addEventListener('pointerdown', unlockAudio, { passive: true });
+  window.addEventListener('keydown', unlockAudio);
 }
 
 boot();

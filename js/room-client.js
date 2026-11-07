@@ -57,8 +57,17 @@ export class RoomClient {
   }
 
   async join(code) {
-    const room = await this.fetch(String(code).trim().toUpperCase());
+    let room = await this.fetch(String(code).trim().toUpperCase());
+    if (!room.guest) room = await this.post('join', { code: room.code });
     this.mySide = otherSide(room);
+    this.attach(room);
+    return room;
+  }
+
+  /** Re-enter a saved room without announcing a new guest (host keeps their side). */
+  async rejoin(code, role) {
+    const room = await this.fetch(String(code).trim().toUpperCase());
+    this.mySide = role === 'host' ? room.humanSide : otherSide(room);
     this.attach(room);
     return room;
   }

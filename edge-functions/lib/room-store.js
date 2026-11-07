@@ -10,7 +10,7 @@ const PREFIX = 'room:';
 const memory = new Map();
 
 function kvOf(env) {
-  const kv = env && env.KV;
+  const kv = env && (env.CHESS_KV || env.KV);
   if (kv && typeof kv.get === 'function' && typeof kv.put === 'function') return kv;
   return null;
 }
@@ -85,4 +85,7 @@ export async function removeRoom(env, code) {
       /* KV unavailable */
     }
   }
+}
+export function storageKind(env) {
+  return kvOf(env) ? 'kv' : 'memory';
 }

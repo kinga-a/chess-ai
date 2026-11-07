@@ -45,6 +45,8 @@ export async function createRoom(env, { game = 'gomoku', humanSide } = {}) {
     code: newCode(),
     game: kind,
     humanSide: human,
+    guest: false,
+    guestAt: null,
     turn: kind === 'gomoku' ? 1 : 'w',
     status: 'playing',
     winner: null,
@@ -73,6 +75,17 @@ export async function closeRoom(env, code) {
   const room = await readRoom(env, normalized);
   await removeRoom(env, normalized);
   return { code: normalized, closed: !!room };
+}
+
+/** Mark that an opponent has entered the room (idempotent). */
+export async function joinRoom(env, code) {
+  const room = await getRoom(env, code);
+  if (!room.guest) {
+    room.guest = true;
+    room.guestAt = Date.now();
+    await saveRoom(env, room);
+  }
+  return room;
 }
 
 async function applyGomoku(env, room, move, player) {
@@ -121,6 +134,10 @@ async function applyChess(env, room, from, to) {
 export async function playInRoom(env, code, payload = {}) {
   const room = await getRoom(env, code);
   if (room.status !== 'playing') throw new RoomError('game is already over', 409);
+  if (!room.guest) {
+    room.guest = true;
+    room.guestAt = Date.now();
+  }
 
   const player = payload.player !== undefined ? payload.player : room.turn;
   if (String(player) !== String(room.turn)) throw new RoomError('not your turn', 409);
@@ -135,6 +152,10 @@ export async function playInRoom(env, code, payload = {}) {
 export async function aiMoveInRoom(env, code, { level = 'normal', engine = 'local' } = {}) {
   const room = await getRoom(env, code);
   if (room.status !== 'playing') throw new RoomError('game is already over', 409);
+  if (!room.guest) {
+    room.guest = true;
+    room.guestAt = Date.now();
+  }
 
   if (room.game === 'gomoku') {
     const board = decodeBoard(room.board, SIZE);

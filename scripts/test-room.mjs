@@ -88,6 +88,16 @@ ok('delete room', removed.status === 200 && removed.data.closed === true);
 const gone = await getRoom(delCode);
 ok('deleted room → 404', gone.status === 404);
 
+// Guest join notification
+const jr = await api('create', { game: 'gomoku', humanSide: 'first' });
+const jCode = jr.data.room.code;
+const beforeJoin = await getRoom(jCode);
+ok('new room awaits guest', beforeJoin.data.room.guest === false);
+const firstJoin = await api('join', { code: jCode });
+ok('join flags guest', firstJoin.status === 200 && firstJoin.data.room.guest === true);
+const againJoin = await api('join', { code: jCode });
+ok('join is idempotent', againJoin.data.room.version === firstJoin.data.room.version);
+
 // MCP room tools
 const mcpRoom = await call('room_create', { game: 'gomoku', humanSide: 'first' });
 ok('MCP room_create', !!mcpRoom.code, mcpRoom.code);
