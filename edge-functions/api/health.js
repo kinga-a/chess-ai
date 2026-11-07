@@ -1,7 +1,7 @@
 import { json, CORS_HEADERS } from '../lib/http.js';
 import { llmConfig } from '../lib/llm.js';
 import { authConfig, verifyKey, requestKey } from '../lib/auth.js';
-import { storageKind } from '../lib/room-store.js';
+import { storageKind, storageInfo } from '../lib/room-store.js';
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -13,7 +13,7 @@ export async function onRequestGet(context) {
     ok: true,
     service: 'edgeone-chess-ai',
     title: '棋境 · EdgeOne AI 棋馆',
-    version: '1.2.3',
+    version: '1.2.6',
     games: ['gomoku', 'chess'],
     mcp: '/api/mcp',
     auth: {
@@ -44,6 +44,7 @@ export async function onRequestGet(context) {
         }
       : { local: true, edge: true, llm: null, locked: true },
     storage: storageKind(env),
+    storageDetail: storageInfo(env),
     runtime: 'EdgeOne Edge Functions',
     time: new Date().toISOString(),
   });

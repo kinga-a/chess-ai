@@ -1,6 +1,6 @@
 # 棋境 · EdgeOne AI 棋馆
 
-> 当前版本 **v1.2.3**
+> 当前版本 **v1.2.6**
 
 部署在 **EdgeOne Makers** 上的五子棋 + 中国象棋 AI 对弈馆。零依赖单页前端，内置本地 minimax 引擎、边缘函数 AI 接口，以及一个 **MCP Server**——任何支持 MCP 的 AI 客户端（Claude Desktop、Cursor、自研 Agent）都能直接接入，实时查局、走子、让 AI 落子。
 
@@ -260,7 +260,10 @@ BASE=https://<域名> ACCESS_KEY=<key> node scripts/mcp-bridge.mjs --room ABC123
 
 | 版本 | 内容 |
 |------|------|
-| **v1.2.3** | KV 绑定变量名改为 `CHESS_KV`（兼容旧 `KV`） |
+| **v1.2.6** | 修正 KV key 格式（仅字母/数字/下划线，`room_XXXXXX`）、兼容 `globalThis` 绑定、404 改为 30s 重试阈值 |
+| v1.2.5 | 新增 `GET /api/storage-check` KV 自检、health 返回 `storageDetail`、房间弹层提示未启用 KV |
+| v1.2.4 | 修复房间 404 轮询风暴、音频手势门控、弹层焦点告警；静态资源改为 no-cache |
+| v1.2.3 | KV 绑定变量名改为 `CHESS_KV`（兼容旧 `KV`） |
 | v1.2.2 | 进入房间提示：房主实时收到「对手已加入房间」 |
 | v1.2.1 | 修复音频自动播放与 aria-hidden 焦点告警；health 增加 `storage` 字段（kv/memory） |
 | v1.2.0 | 双密钥分离（`ADMIN_PASS` 网页 / `ACCESS_KEY` MCP）、房间簿与房间删除、KV 存储说明、MCP 14 个工具 |

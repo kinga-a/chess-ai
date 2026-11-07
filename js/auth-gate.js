@@ -134,6 +134,7 @@ export async function initAccessGate() {
 
   enabled = !!(health && health.auth && health.auth.enabled);
   document.documentElement.dataset.secure = enabled ? 'on' : 'off';
+  document.documentElement.dataset.storage = (health && health.storage) || 'memory';
   if (lockBtn) lockBtn.hidden = !enabled;
 
   bind();

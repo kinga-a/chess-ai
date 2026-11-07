@@ -4,6 +4,9 @@
 import { apiFetch } from './core/api.js';
 
 const POLL_MS = 1200;
+const MISS_LIMIT = 25;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function otherSide(room) {
   if (room.game === 'gomoku') return room.humanSide === 1 ? 2 : 1;
@@ -12,7 +15,11 @@ function otherSide(room) {
 
 async function readRoom(res) {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `房间请求失败（${res.status}）`);
+  if (!res.ok) {
+    const error = new Error(data.error || `房间请求失败（${res.status}）`);
+    error.status = res.status;
+    throw error;
+  }
   return data.room;
 }
 
@@ -26,6 +33,8 @@ export class RoomClient {
     this.timer = 0;
     this.onRoom = null;
     this.onError = null;
+    this.onGone = null;
+    this.missCount = 0;
   }
 
   async post(action, body) {
@@ -43,6 +52,7 @@ export class RoomClient {
   }
 
   attach(room) {
+    this.missCount = 0;
     this.room = room;
     this.code = room.code;
     this.version = room.version;
@@ -57,7 +67,17 @@ export class RoomClient {
   }
 
   async join(code) {
-    let room = await this.fetch(String(code).trim().toUpperCase());
+    const normalized = String(code).trim().toUpperCase();
+    let room = null;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        room = await this.fetch(normalized);
+        break;
+      } catch (err) {
+        if (err.status !== 404 || attempt === 4) throw err;
+        await sleep(500);
+      }
+    }
     if (!room.guest) room = await this.post('join', { code: room.code });
     this.mySide = otherSide(room);
     this.attach(room);
@@ -66,15 +86,26 @@ export class RoomClient {
 
   /** Re-enter a saved room without announcing a new guest (host keeps their side). */
   async rejoin(code, role) {
-    const room = await this.fetch(String(code).trim().toUpperCase());
+    const normalized = String(code).trim().toUpperCase();
+    let room = null;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        room = await this.fetch(normalized);
+        break;
+      } catch (err) {
+        if (err.status !== 404 || attempt === 4) throw err;
+        await sleep(500);
+      }
+    }
     this.mySide = role === 'host' ? room.humanSide : otherSide(room);
     this.attach(room);
     return room;
   }
 
-  start(onRoom, onError) {
+  start(onRoom, onError, onGone) {
     this.onRoom = onRoom;
     this.onError = onError || null;
+    this.onGone = onGone || null;
     this.running = true;
     this.tick();
   }
@@ -86,7 +117,18 @@ export class RoomClient {
       const room = await this.fetch(this.code);
       if (room && room.version !== this.version) this.attach(room);
     } catch (err) {
-      if (this.onError) this.onError(err);
+      if (err && err.status === 404) {
+        this.missCount += 1;
+        if (this.missCount >= MISS_LIMIT) {
+          this.running = false;
+          clearTimeout(this.timer);
+          this.timer = 0;
+          if (this.onGone) this.onGone(this.code);
+          return;
+        }
+      } else if (this.onError) {
+        this.onError(err);
+      }
     }
     const wait = Math.max(300, POLL_MS - (Date.now() - started));
     this.timer = setTimeout(() => this.tick(), wait);

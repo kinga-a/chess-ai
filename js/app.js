@@ -326,6 +326,8 @@ function renderRoomBar(room) {
   }
 }
 
+let roomErrorAt = 0;
+
 function enterRoom(room) {
   state.room = room;
   state.roomClient.start(
@@ -340,7 +342,18 @@ function enterRoom(room) {
       if (state.activeGame && state.activeGame.id === next.game) state.activeGame.syncRoom(next);
     },
     (err) => {
-      if (err && err.message) toast(err.message);
+      const now = Date.now();
+      if (now - roomErrorAt < 5000) return;
+      roomErrorAt = now;
+      toast(err.message || '房间连接失败');
+    },
+    (code) => {
+      state.room = null;
+      state.roomClient.reset();
+      forgetRoom(code);
+      renderRoomBar(null);
+      toast(`房间 ${code} 已失效（服务重启或未启用 CHESS_KV）`);
+      if (state.activeGame) startNewGame();
     },
   );
   closeModal('roomModal');
@@ -412,6 +425,8 @@ function openRoomPanel() {
   if (gameSelect) gameSelect.value = state.currentGame || 'gomoku';
   syncRoomSideOptions();
   renderRoomBook();
+  const warning = $('#storageWarn');
+  if (warning) warning.hidden = document.documentElement.dataset.storage !== 'memory';
   $('#roomError').textContent = '';
   openModal('roomModal');
 }
@@ -601,9 +616,9 @@ function openModal(id) {
 function closeModal(id) {
   const el = $('#' + id);
   if (!el) return;
+  if (el.contains(document.activeElement)) document.activeElement.blur();
   el.classList.remove('open');
   el.setAttribute('aria-hidden', 'true');
-  if (el.contains(document.activeElement)) document.activeElement.blur();
   if (modalReturnFocus && typeof modalReturnFocus.focus === 'function') {
     try {
       modalReturnFocus.focus({ preventScroll: true });

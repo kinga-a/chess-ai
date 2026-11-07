@@ -469,6 +469,13 @@ b { font-weight: 600; }
 .room-code-label { font-size: 10px; letter-spacing: 0.2em; color: var(--muted-2); }
 .room-code { font-family: var(--mono); font-size: 30px; letter-spacing: 0.26em; color: var(--gold-2); }
 .room-hint { font-size: 13px; color: var(--muted); }
+.storage-warn {
+  margin: 12px 0 0; padding: 10px 12px; border-radius: 10px;
+  font-size: 12.5px; line-height: 1.6; color: #f0c36d;
+  background: rgba(217, 164, 65, 0.1); border: 1px solid rgba(217, 164, 65, 0.28);
+}
+.storage-warn code { color: var(--gold-2); }
+.storage-warn[hidden] { display: none; }
 .room-error { min-height: 18px; margin: 10px 0 0; font-size: 12.5px; color: var(--red-2); text-align: center; }
 .room-book { margin-top: 16px; }
 .room-book-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }

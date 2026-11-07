@@ -6,14 +6,37 @@
  * after three hours.
  */
 const TTL = 3 * 60 * 60 * 1000;
-const PREFIX = 'room:';
+const PREFIX = 'room_';
+const LEGACY_PREFIX = 'room:';
 const memory = new Map();
 
-function kvOf(env) {
-  const kv = env && (env.CHESS_KV || env.KV);
-  if (kv && typeof kv.get === 'function' && typeof kv.put === 'function') return kv;
+export function getKv(env) {
+  const candidates = [
+    env && env.CHESS_KV,
+    env && env.KV,
+    typeof globalThis !== 'undefined' ? globalThis.CHESS_KV : null,
+  ];
+  for (const kv of candidates) {
+    if (kv && typeof kv.get === 'function' && typeof kv.put === 'function') return kv;
+  }
   return null;
 }
+
+export function storageInfo(env) {
+  const sources = [
+    ['CHESS_KV', env && env.CHESS_KV],
+    ['KV', env && env.KV],
+    ['globalThis.CHESS_KV', typeof globalThis !== 'undefined' ? globalThis.CHESS_KV : null],
+  ];
+  for (const [name, kv] of sources) {
+    if (!kv) continue;
+    const methods = ['get', 'put', 'delete', 'list'].filter((m) => typeof kv[m] === 'function');
+    return { kind: methods.length >= 2 ? 'kv' : 'invalid', binding: name, methods };
+  }
+  return { kind: 'memory', binding: null, methods: [] };
+}
+
+const kvOf = getKv;
 
 async function readKv(kv, key) {
   try {
@@ -36,12 +59,13 @@ export async function readRoom(env, code) {
   const key = `${PREFIX}${code}`;
   const kv = kvOf(env);
   if (kv) {
-    const data = await readKv(kv, key);
+    const data = (await readKv(kv, key)) || (await readKv(kv, `${LEGACY_PREFIX}${code}`));
     if (data) {
       const age = Date.now() - (data.updated || 0);
       if (age <= TTL) return data;
       try {
         await kv.delete(key);
+        await kv.delete(`${LEGACY_PREFIX}${code}`);
       } catch (_) {
         /* best effort expiry */
       }
@@ -81,11 +105,13 @@ export async function removeRoom(env, code) {
   if (kv && typeof kv.delete === 'function') {
     try {
       await kv.delete(`${PREFIX}${code}`);
+      await kv.delete(`${LEGACY_PREFIX}${code}`);
     } catch (_) {
       /* KV unavailable */
     }
   }
 }
 export function storageKind(env) {
-  return kvOf(env) ? 'kv' : 'memory';
+  const info = storageInfo(env);
+  return info.kind === 'kv' ? 'kv' : 'memory';
 }

@@ -14,10 +14,18 @@ export class AudioKit {
     }
     this.ctx = null;
     this.master = null;
+    this.armed = false;
   }
 
+  /** Call from a user gesture: arms audio and creates the context. */
   unlock() {
-    if (!this.enabled) return null;
+    this.armed = true;
+    return this.ensure();
+  }
+
+  /** Internal: never creates a context before the first gesture. */
+  ensure() {
+    if (!this.enabled || !this.armed) return null;
     if (!this.ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
@@ -53,7 +61,7 @@ export class AudioKit {
 
   tone({ freq = 440, type = 'sine', dur = 0.18, gain = 0.2, slideTo = null, delay = 0 }) {
     if (!this.enabled) return;
-    const ctx = this.unlock();
+    const ctx = this.ensure();
     if (!ctx) return;
     const t0 = ctx.currentTime + delay;
     const osc = ctx.createOscillator();
@@ -72,7 +80,7 @@ export class AudioKit {
 
   noise({ dur = 0.08, gain = 0.18, freq = 1400, q = 1.2, delay = 0, type = 'bandpass' }) {
     if (!this.enabled) return;
-    const ctx = this.unlock();
+    const ctx = this.ensure();
     if (!ctx) return;
     const t0 = ctx.currentTime + delay;
     const frames = Math.max(1, Math.floor(ctx.sampleRate * dur));
