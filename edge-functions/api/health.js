@@ -13,7 +13,7 @@ export async function onRequestGet(context) {
     ok: true,
     service: 'edgeone-chess-ai',
     title: '棋境 · EdgeOne AI 棋馆',
-    version: '1.2.9',
+    version: '1.3.1',
     games: ['gomoku', 'chess'],
     mcp: '/api/mcp',
     auth: {
@@ -43,8 +43,8 @@ export async function onRequestGet(context) {
           baseUrl: cfg.enabled ? cfg.base : null,
         }
       : { local: true, edge: true, llm: null, locked: true },
-    storage: storageKind(env),
-    storageDetail: storageInfo(env),
+    storage: await storageKind(env),
+    storageDetail: await storageInfo(env),
     runtime: 'EdgeOne Edge Functions',
     time: new Date().toISOString(),
   });

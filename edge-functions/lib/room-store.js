@@ -6,8 +6,11 @@
  * after three hours.
  */
 const TTL = 3 * 60 * 60 * 1000;
+import { getBlobStore, blobError } from './blob-store.js';
+
 const PREFIX = 'room_';
 const LEGACY_PREFIX = 'room:';
+const BLOB_DIR = 'rooms';
 const memory = new Map();
 
 export function getKv(env) {
@@ -22,7 +25,12 @@ export function getKv(env) {
   return null;
 }
 
-export function storageInfo(env) {
+export async function storageInfo(env) {
+  const blob = await getBlobStore();
+  if (blob) {
+    const methods = ['get', 'set', 'setJSON', 'delete'].filter((m) => typeof blob[m] === 'function');
+    return { kind: methods.length >= 3 ? 'blob' : 'invalid', binding: 'qijing-rooms', methods, error: blobError() };
+  }
   const sources = [
     ['CHESS_KV', env && env.CHESS_KV],
     ['KV', env && env.KV],
@@ -33,7 +41,7 @@ export function storageInfo(env) {
     const methods = ['get', 'put', 'delete', 'list'].filter((m) => typeof kv[m] === 'function');
     return { kind: methods.length >= 2 ? 'kv' : 'invalid', binding: name, methods };
   }
-  return { kind: 'memory', binding: null, methods: [] };
+  return { kind: 'memory', binding: null, methods: [], error: blobError() };
 }
 
 const kvOf = getKv;
@@ -55,8 +63,28 @@ export function newCode() {
   return code;
 }
 
+function blobKey(code) {
+  return `${BLOB_DIR}/${code}.json`;
+}
+
 export async function readRoom(env, code) {
   const key = `${PREFIX}${code}`;
+  const blob = await getBlobStore();
+  if (blob) {
+    try {
+      const data = await blob.get(blobKey(code), { type: 'json', consistency: 'strong' });
+      if (data) {
+        const age = Date.now() - (data.updated || 0);
+        if (age <= TTL) {
+          memory.set(code, data);
+          return data;
+        }
+        await blob.delete(blobKey(code));
+      }
+    } catch (_) {
+      /* fall through to KV / memory */
+    }
+  }
   const kv = kvOf(env);
   if (kv) {
     const data = (await readKv(kv, key)) || (await readKv(kv, `${LEGACY_PREFIX}${code}`));
@@ -88,6 +116,15 @@ export async function saveRoom(env, room) {
     const now = Date.now();
     for (const [code, value] of memory) if (now - value.updated > TTL) memory.delete(code);
   }
+  const blob = await getBlobStore();
+  if (blob) {
+    try {
+      await blob.setJSON(blobKey(room.code), room);
+      return room;
+    } catch (_) {
+      /* fall through to KV */
+    }
+  }
   const kv = kvOf(env);
   if (kv) {
     try {
@@ -101,6 +138,14 @@ export async function saveRoom(env, room) {
 
 export async function removeRoom(env, code) {
   memory.delete(code);
+  const blob = await getBlobStore();
+  if (blob) {
+    try {
+      await blob.delete(blobKey(code));
+    } catch (_) {
+      /* best effort */
+    }
+  }
   const kv = kvOf(env);
   if (kv && typeof kv.delete === 'function') {
     try {
@@ -111,7 +156,7 @@ export async function removeRoom(env, code) {
     }
   }
 }
-export function storageKind(env) {
-  const info = storageInfo(env);
-  return info.kind === 'kv' ? 'kv' : 'memory';
+export async function storageKind(env) {
+  const info = await storageInfo(env);
+  return info.kind === 'blob' ? 'blob' : info.kind === 'kv' ? 'kv' : 'memory';
 }

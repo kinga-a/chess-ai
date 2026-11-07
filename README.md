@@ -1,6 +1,6 @@
 # 棋境 · EdgeOne AI 棋馆
 
-> 当前版本 **v1.2.9**
+> 当前版本 **v1.3.1**
 
 部署在 **EdgeOne Makers** 上的五子棋 + 中国象棋 AI 对弈馆。零依赖单页前端，内置本地 minimax 引擎、边缘函数 AI 接口，以及一个 **MCP Server**——任何支持 MCP 的 AI 客户端（Claude Desktop、Cursor、自研 Agent）都能直接接入，实时查局、走子、让 AI 落子。
 
@@ -110,7 +110,7 @@ python3 scripts/ui-auth-check.py  # 入馆验证流程 + 截图（自动起带�
 
 1. 将仓库推送到 GitHub / GitLab / Gitee；
 2. EdgeOne Makers 控制台 → 新建项目 → 导入该仓库；
-3. 框架预设选「其他 / 静态站点」，构建命令**留空**，输出目录填 `.`；
+3. 框架预设选「其他 / 静态站点」，构建命令**留空**，输出目录填 `.`，**安装命令填 `npm install`**（Blob 强一致存储依赖 `@edgeone/pages-blob`）；
 4. **在环境变量中添加 `ADMIN_PASS` 与 `ACCESS_KEY`**（两者独立）；
 5. 部署完成后绑定域名即可访问；`edge-functions/` 下的文件会自动注册为边缘函数。
 
@@ -135,7 +135,7 @@ edgeone deploy
 
 不配置大模型也能完整游玩——AI 走本地/边缘 minimax。LLM 调用失败、超时（7s）或返回非 JSON 时，会自动回退 minimax，玩家无感知。
 
-### KV 存储（联机房间，建议绑定）
+### 存储：Blob（推荐）/ KV（回退）
 
 联机房间默认放在函数进程内存里。Edge Functions 是弹性多实例，A 实例写入的房间 B 实例读不到，轮询就可能 404 或不同步；**正式公网部署请绑定 KV**。
 
@@ -260,7 +260,9 @@ BASE=https://<域名> ACCESS_KEY=<key> node scripts/mcp-bridge.mjs --room ABC123
 
 | 版本 | 内容 |
 |------|------|
-| **v1.2.9** | 入口脚本版本参数随发版更新（避免浏览器加载旧 app.js） |
+| **v1.3.1** | 固定 Blob SDK `0.0.19`、SDK 失败 60 秒后自动重试、storageDetail 实际探测方法 |
+| v1.3.0 | 房间改用 Blob 强一致存储（KV 回退），落子/结束即时可见；新增 `@edgeone/pages-blob` 依赖 |
+| v1.2.9 | 入口脚本版本参数随发版更新（避免浏览器加载旧 app.js） |
 | v1.2.8 | 房间列表改为「进入 / 删除」双按钮，删除需二次确认，失效房间保留可手动清理 |
 | v1.2.7 | 新增 `room_tick`（读+应手一次完成）、桥接轮询 300ms、网页轮询 600ms |
 | v1.2.6 | 修正 KV key 格式（仅字母/数字/下划线，`room_XXXXXX`）、兼容 `globalThis` 绑定、404 改为 30s 重试阈值 |
